@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:;" />
+  <link rel="stylesheet" href="diary.css" />
+  <title>DevPet – Diary</title>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span id="brandEmoji" hidden></span>DevPet</div>
+    <div class="datenav">
+      <button id="prevDay" class="icon-btn" data-i18n-title="back" title="Day back">‹</button>
+      <select id="dateSelect" class="date-select"></select>
+      <button id="nextDay" class="icon-btn" data-i18n-title="fwd" title="Day forward">›</button>
+      <button id="todayBtn" class="ghost-btn" data-i18n="today">Today</button>
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- HERO: creature + level + XP -->
+    <section class="card hero">
+      <div class="avatar"><span id="avatarEmoji">🐶</span></div>
+      <div class="hero-info">
+        <div class="hero-name" id="creatureName">DevPet</div>
+        <div class="hero-sub" data-i18n="heroSub">Your coding companion</div>
+        <div class="level-row">
+          <span class="level-badge">⭐ <span data-i18n="level">Level</span>&nbsp;<span id="levelNum">1</span></span>
+          <span class="coin-badge" id="coinHero" title="Coins">🪙 <span id="coinNum">0</span></span>
+          <div class="xp-wrap">
+            <div class="xp-bar"><div class="xp-fill" id="xpFill"></div></div>
+            <div class="xp-text" id="xpText">0 / 50 XP</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DIARY REPORT -->
+    <section class="card report-card">
+      <div class="card-head">
+        <h2 data-i18n="diaryTitle">📖 Diary</h2>
+        <div class="row-actions">
+          <span id="engineBadge" class="badge hidden"></span>
+          <button id="genBtn" class="primary-btn" data-i18n="genBtn">Generate report</button>
+        </div>
+      </div>
+      <div id="reportStats" class="rstats hidden"></div>
+      <div id="report" class="report" data-i18n="reportPlaceholder">Choose "Generate report" so your pet sums up the day.</div>
+    </section>
+
+    <!-- ACTIVITY -->
+    <section class="card">
+      <div class="card-head">
+        <h2 data-i18n="activity">🕑 Activity</h2>
+        <div class="head-right">
+          <div class="seg">
+            <button id="viewProjects" class="seg-btn active" data-i18n="viewProjects">By project</button>
+            <button id="viewTimeline" class="seg-btn" data-i18n="viewTimeline">Timeline</button>
+          </div>
+          <span id="eventCount" class="muted"></span>
+        </div>
+      </div>
+      <ul id="timeline" class="timeline"></ul>
+    </section>
+
+    <!-- SETTINGS -->
+    <div class="settings-grid">
+      <section class="card span-2">
+        <div class="card-head"><h2 data-i18n="creatures">🐾 Creatures</h2></div>
+        <div id="creaturePills"></div>
+      </section>
+
+      <section class="card span-2">
+        <div class="card-head">
+          <h2 data-i18n="shopTitle">🪙 Skin shop</h2>
+          <span class="coin-badge"><span>🪙</span> <span id="coinShop">0</span></span>
+        </div>
+        <p class="hint" data-i18n="shopHint">Earn coins by coding — commits, AI sessions & edits. Spend them to unlock new coder skins.</p>
+        <div id="shopGrid" class="shop-grid"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2 data-i18n="size">📐 Size</h2><span id="sizeVal" class="muted">100%</span></div>
+        <input type="range" id="sizeSlider" class="slider" min="50" max="250" step="5" value="100" />
+        <p class="hint" data-i18n="hintScroll">Or scroll with the mouse wheel right over the pet.</p>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2 data-i18n="sources">🔎 Sources</h2></div>
+        <label class="check"><input type="checkbox" id="srcGit" /> <span data-i18n="srcGit">Git commits & changes</span></label>
+        <label class="check"><input type="checkbox" id="srcFiles" /> <span data-i18n="srcFiles">File changes in the project folder</span></label>
+        <label class="check"><input type="checkbox" id="srcAi" /> <span data-i18n="srcAi">AI coding sessions (Claude Code)</span></label>
+      </section>
+
+      <section class="card span-2">
+        <div class="card-head"><h2 data-i18n="folders">📂 Project folders</h2>
+          <button id="addFolder" class="ghost-btn" data-i18n="addFolder">+ Folder</button>
+        </div>
+        <ul id="folders" class="folders"></ul>
+        <p class="hint" data-i18n="hintFolders">Your pet watches these folders for git commits & file changes.</p>
+      </section>
+
+      <section class="card span-2">
+        <div class="card-head"><h2 data-i18n="aiReport">✨ AI report (optional)</h2></div>
+        <label class="check"><input type="checkbox" id="aiEnabled" /> <span data-i18n="aiCheck">Let an AI write the diary</span></label>
+        <div class="field"><label data-i18n="apiKeyLabel">API key</label><input type="password" id="apiKey" placeholder="sk-… (or env key)" /></div>
+        <div class="field"><label data-i18n="modelLabel">Model</label>
+          <select id="aiModel">
+            <option value="MiniMax-Text-01">MiniMax-Text-01</option>
+            <option value="claude-sonnet-4-6">claude-sonnet-4-6</option>
+            <option value="claude-haiku-4-5-20251001">claude-haiku-4-5</option>
+            <option value="claude-opus-4-8">claude-opus-4-8</option>
+          </select>
+        </div>
+        <p class="hint" data-i18n="aiHint">Without a key your pet writes the report locally (offline). The key stays on your machine only.</p>
+      </section>
+    </div>
+
+    <div class="footer-actions">
+      <button id="demoBtn" class="ghost-btn" data-i18n="demo">Load demo data</button>
+      <button id="dataBtn" class="ghost-btn" data-i18n="openData">Open data folder</button>
+    </div>
+  </main>
+
+  <script src="diary.js"></script>
+</body>
+</html>

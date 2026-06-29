@@ -12,11 +12,11 @@ out/
 release/
 build/
 
-# ───────────────────────── Runtime / user data ────────────────────────────
-# DevPet stores config + diary in the OS userData dir (outside the repo),
-# but ignore these names anyway as a safety net.
-config.json
-diary/
+# ───────────────────────── Runtime / logs ─────────────────────────────────
+# DevPet keeps its config + diary in the OS userData dir (outside the repo),
+# so there's nothing runtime to ignore here — just stray logs.
+# (NOTE: do NOT add a bare `diary/` or `config.json` here — it would also match
+#  the source dirs src/main/diary and src/renderer/diary.)
 *.log
 _petlog.txt
 
