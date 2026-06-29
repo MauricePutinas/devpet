@@ -6,6 +6,7 @@ const os = require('os');
 const { BY_ID } = require('../shared/creatures');
 
 const CONFIG_PATH = path.join(app.getPath('userData'), 'config.json');
+const BAK_PATH = CONFIG_PATH + '.bak'; // last-known-good copy — guards progress against corruption
 
 const DEFAULTS = {
   creature: 'bvbcoder', // MUST be a valid id from src/shared/creatures.js — an invalid
@@ -48,30 +49,59 @@ function deepMerge(base, override) {
   return out;
 }
 
+// Read + parse a config file, tolerating a stray UTF-8 BOM (some editors add one,
+// which would otherwise make JSON.parse throw and wipe the user's progress/creature).
+function readConfig(p) {
+  return JSON.parse(fs.readFileSync(p, 'utf8').replace(/^﻿/, ''));
+}
+
 function load() {
   if (cache) return cache;
+  let data = null;
   try {
-    const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
-    // strip a UTF-8 BOM if some editor added one — otherwise JSON.parse throws and we'd
-    // silently fall back to DEFAULTS, wiping the user's progress/creature (happened once).
-    cache = deepMerge(DEFAULTS, JSON.parse(raw.replace(/^﻿/, '')));
-  } catch {
-    cache = { ...DEFAULTS };
+    data = readConfig(CONFIG_PATH);
+  } catch (e1) {
+    // Main file missing/corrupt — recover from the last-known-good backup before
+    // ever falling back to DEFAULTS (which would look like lost progress).
+    try {
+      data = readConfig(BAK_PATH);
+      console.warn('config.json unreadable, recovered from backup:', e1.message);
+    } catch {
+      data = null;
+    }
   }
+  cache = data ? deepMerge(DEFAULTS, data) : { ...DEFAULTS };
   // self-heal: a stale/removed creature id would load no assets → invisible pet
   if (!BY_ID[cache.creature]) cache.creature = DEFAULTS.creature;
   return cache;
+}
+
+// Write via a temp file + rename so a crash mid-write can never leave a half-written
+// (corrupt) config.json. Falls back to a direct write if the rename is refused.
+function writeAtomic(p, data) {
+  const tmp = p + '.tmp';
+  fs.writeFileSync(tmp, data);
+  try {
+    fs.renameSync(tmp, p);
+  } catch {
+    fs.writeFileSync(p, data);
+    try { fs.unlinkSync(tmp); } catch {}
+  }
 }
 
 function save(patch) {
   cache = deepMerge(load(), patch);
   try {
     fs.mkdirSync(path.dirname(CONFIG_PATH), { recursive: true });
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(cache, null, 2));
+    // Snapshot the current good config as a backup before overwriting, so progress can
+    // always be recovered. Only back up when the existing file actually parses — never
+    // let a corrupt file clobber a good backup.
+    try { readConfig(CONFIG_PATH); fs.copyFileSync(CONFIG_PATH, BAK_PATH); } catch {}
+    writeAtomic(CONFIG_PATH, JSON.stringify(cache, null, 2));
   } catch (e) {
     console.error('config save failed', e);
   }
   return cache;
 }
 
-module.exports = { load, save, CONFIG_PATH, DEFAULTS };
+module.exports = { load, save, CONFIG_PATH, BAK_PATH, DEFAULTS };
