@@ -70,6 +70,8 @@ function gitLog() {
 }
 
 function buildChangelog(commits) {
+  // Drop the changelog bot's own "[skip ci]" commits so the log isn't self-referential noise.
+  commits = commits.filter((c) => !/\[skip ci\]/i.test(c.subject));
   if (!commits.length) return '_No commits yet — the changelog fills in on the first push._';
 
   const byDate = new Map(); // insertion order = newest first (git log default)
