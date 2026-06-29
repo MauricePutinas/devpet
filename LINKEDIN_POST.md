@@ -1,39 +1,45 @@
 # 🇩🇪 Deutsch
 
-Ich hab mir einen kleinen Spion auf den Desktop gesetzt, der mir beim Coden zuschaut 👀
+Eigentlich wollte ich produktiv sein. Stattdessen hab ich meinem Desktop ein Haustier gebaut. 🐾
 
-Sein Name ist **DevPet** – eine winzige animierte Coder-Figur, die in einem transparenten, immer-im-Vordergrund-Fenster auf deinem Desktop sitzt und live mitbekommt, was du tust.
+Darf ich vorstellen: **DevPet** — ein winziger, handanimierter Coder, der in der Ecke meines Bildschirms sitzt und mir beim Programmieren über die Schulter schaut. Wie ein neugieriger Praktikant, nur süßer. 👀
 
-Und mit „mitbekommen" mein ich es ernst: DevPet sieht deine **Git-Commits**, deine **Datei-Änderungen** und – mein Lieblingsteil – sogar deine **KI-Coding-Sessions**, indem es die Session-Logs von **Claude Code** und **Codex** ausliest. Pushst du einen Commit, jubelt es. Bist du tief im AI-Pair-Programming, krempelt es die Ärmel hoch und legt mit los.
+Das Ding ist im Grunde ein kleiner (netter!) Spion: Es merkt, wenn ich einen Git-Commit pushe (→ jubelt), wenn ich wie wild Dateien umbaue, und sogar wenn ich mit **Claude Code** oder **Codex** pair-programme. Abends tippt es mir dann ein kleines Entwickler-Tagebuch — was ich getrieben hab, schön nach Projekt sortiert.
 
-Am Ende des Tages schreibt es dir ein **automatisches Entwickler-Tagebuch** (auf Deutsch oder Englisch), schön nach Projekt gruppiert. Läuft offline out-of-the-box – optional gibt's hübschere Prosa über **DeepSeek**, **MiniMax** oder **Claude**. API-Keys bleiben 100% lokal und freiwillig.
+Und weil ein bisschen Quatsch sein muss, ist das Ganze komplett gamifiziert: XP sammeln, leveln, Coins verdienen und im Shop neue Skins freischalten. Aktuell 5 Charaktere — Volt ⚡, Blaze 🔥, Nova 💫, Hex 😈 und Root 👑 — jeder mit eigener Stimme, Sprechblasen und einem persönlichen Move, wenn ich mit der Maus näher komme. Ja, der gelbe macht 'nen Torjubel. ⚽😄
 
-Das Ganze ist gamifiziert: **XP sammeln, Level aufsteigen, Coins verdienen** und im **Coin-Shop** neue Skins freischalten. Es gibt **5 handanimierte Charaktere** – Volt ⚡, Blaze 🔥, Nova 💫, Hex 😈 und Root 👑 – jeder mit bis zu 8 eigenen Animationen, eigener Stimme (kostenloses Edge TTS) und Sprechblasen.
+War das notwendig? Absolut nicht.
+War das ein Riesenspaß? Sowas von. 🙌
 
-**Warum hab ich das gebaut?** Ehrlich? Um Electron richtig zu lernen – und weil ein leerer Desktop beim Coden ein bisschen einsam ist. Privacy-first: 100% lokal, kein Account, kein Telemetrie-Quatsch. Einfach ein Buddy, der sich mit dir freut.
+Hab nebenbei richtig viel über Electron gelernt, ein paar Abende verbastelt — und mein Desktop ist jetzt deutlich weniger einsam. 100 % lokal, kein Account, kein Tracking. Einfach ein Buddy, der sich mit mir freut, wenn der Code endlich läuft.
 
-Open Source, Feedback super gern willkommen 🙌
-👉 GitHub: github.com/MauricePutinas/devpet
+Komplett Open Source — Code & alle GIFs gibt's hier:
+👉 github.com/MauricePutinas/devpet
 
-#Electron #DevTools #IndieDev #OpenSource #SideProject #JavaScript #NodeJS #BuildInPublic #Coding
+Was baut ihr gerade aus reinem Spaß? 👇
+
+#justforfun #buildinpublic #electron #sideproject #coding #indiedev #javascript #devtools
 
 ---
 
 # 🇬🇧 English
 
-I put a tiny spy on my desktop that watches me code 👀
+I was supposed to be productive. Instead, I built a pet for my desktop. 🐾
 
-Meet **DevPet** – a small animated coder character that lives in a transparent, always-on-top window on your desktop and reacts to what you do, live.
+Meet **DevPet** — a tiny hand-animated coder that sits in the corner of my screen and watches me work. Like an overly curious intern, but cuter. 👀
 
-And I mean *watches*: DevPet notices your **git commits**, your **file edits**, and – the cool part – even your **AI coding sessions** by reading the session logs from **Claude Code** and **Codex**. Ship a commit and it cheers. Go deep into an AI pair-programming session and it rolls up its sleeves and gets to work too.
+It's basically a (friendly) little spy: it notices when I push a git commit (→ it cheers), when I'm furiously rewriting files, and even when I'm pair-programming with **Claude Code** or **Codex**. At the end of the day it types up a little developer diary for me — what I got up to, neatly grouped by project.
 
-At the end of the day it writes you an **automatic developer diary** (German or English), neatly grouped by project. Works offline out of the box, with optional nicer prose via **DeepSeek**, **MiniMax**, or **Claude**. API keys stay 100% local and optional.
+And because everything's better with a bit of nonsense, it's fully gamified: earn XP, level up, collect coins, and unlock new skins in a shop. 5 characters so far — Volt ⚡, Blaze 🔥, Nova 💫, Hex 😈 and Root 👑 — each with its own voice, speech bubbles, and a personal signature move when my cursor gets close. Yep, the yellow one does a goal celebration. ⚽😄
 
-It's gamified, too: **earn XP, level up, collect coins**, and spend them in a built-in **coin shop** to unlock new skins. There are **5 hand-animated characters** – Volt ⚡, Blaze 🔥, Nova 💫, Hex 😈, and Root 👑 – each with up to 8 unique animations, its own voice (free Edge TTS), and speech bubbles.
+Was it necessary? Absolutely not.
+Was it a blast to build? 100%. 🙌
 
-**Why I built it?** Honestly? To actually learn Electron – and because an empty desktop gets a little lonely while you're heads-down coding. Privacy-first: 100% local, no account, no telemetry. Just a buddy that's genuinely happy when you ship.
+Learned a ton about Electron along the way, burned a few evenings on it — and my desktop is a lot less lonely now. Fully local, no account, no tracking. Just a buddy that's genuinely stoked when the code finally runs.
 
-Open source, and I'd love your feedback 🙌
-👉 GitHub: github.com/MauricePutinas/devpet
+Fully open source — code & all the GIFs here:
+👉 github.com/MauricePutinas/devpet
 
-#Electron #DevTools #IndieDev #OpenSource #SideProject #JavaScript #NodeJS #BuildInPublic #Coding
+What's the most pointless-but-fun thing you've built lately? 👇
+
+#justforfun #buildinpublic #electron #sideproject #coding #indiedev #javascript #devtools
