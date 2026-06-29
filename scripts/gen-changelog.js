@@ -70,8 +70,10 @@ function gitLog() {
 }
 
 function buildChangelog(commits) {
-  // Drop the changelog bot's own "[skip ci]" commits so the log isn't self-referential noise.
-  commits = commits.filter((c) => !/\[skip ci\]/i.test(c.subject));
+  // Drop the changelog bot's own update commits so the log isn't self-referential noise.
+  // Match the bot's exact subject prefix (not just "[skip ci]") so human commits that merely
+  // mention [skip ci] still show up.
+  commits = commits.filter((c) => !/^docs: update changelog\b/i.test(c.subject));
   if (!commits.length) return '_No commits yet — the changelog fills in on the first push._';
 
   const byDate = new Map(); // insertion order = newest first (git log default)
