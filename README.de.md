@@ -224,7 +224,10 @@ Veröffentlicht unter der **MIT-Lizenz**. Gebaut mit ❤️ und Claude von **Mau
 
 <!-- CHANGELOG:START -->
 
-_Das Änderungsprotokoll erscheint automatisch nach dem ersten Push._
+### 2026-06-29
+
+- 📝 docs: lighter, funnier LinkedIn post (just-for-fun vibe) `14216ba`
+- ✨ feat: initial release — DevPet desktop pet with auto dev-diary, 5 animated skins &amp; gamified coin shop `939642a`
 
 <!-- CHANGELOG:END -->
 

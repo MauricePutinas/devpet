@@ -224,7 +224,10 @@ Released under the **MIT License**. Built with ❤️ and Claude by **Maurice**.
 
 <!-- CHANGELOG:START -->
 
-_The changelog fills in automatically after the first push._
+### 2026-06-29
+
+- 📝 docs: lighter, funnier LinkedIn post (just-for-fun vibe) `14216ba`
+- ✨ feat: initial release — DevPet desktop pet with auto dev-diary, 5 animated skins &amp; gamified coin shop `939642a`
 
 <!-- CHANGELOG:END -->
 
