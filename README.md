@@ -228,6 +228,7 @@ Released under the **MIT License**. Built with ❤️ and Claude by **Maurice**.
 
 ### 2026-06-29
 
+- ✨ feat: crash-proof config (auto-backup + atomic write + recovery) and live-refresh the diary on focus `31c7e55`
 - 🐛 fix(changelog): match the bot's update commits by subject prefix, keep human commits `61e5d6c`
 - 🐛 fix(changelog): exclude the bot's own [skip ci] commits from the changelog `4b1c364`
 - ✨ feat: add one-click Start DevPet.bat launcher (Windows) + README note `bec4eae`
