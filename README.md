@@ -181,6 +181,8 @@ npm start
 
 That's it — your pet appears on the desktop. 🎉
 
+> 🪟 **Windows one-click:** instead of the terminal you can just **double-click `Start DevPet.bat`** — it installs dependencies on first run and launches the pet (no console window stays open).
+
 **Optional — enable AI diary summaries:** drop an API key file in `.secrets/deepseek.key` (or `.secrets/minimax.key`). Otherwise the diary happily uses the offline template writer.
 
 ### 🧩 Tech & How it's built

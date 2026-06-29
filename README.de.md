@@ -181,6 +181,8 @@ npm start
 
 Das war's — dein Pet erscheint auf dem Desktop. 🎉
 
+> 🪟 **Windows-Ein-Klick:** Statt Terminal kannst du auch einfach **`Start DevPet.bat` doppelklicken** — installiert beim ersten Mal die Abhängigkeiten und startet das Pet (es bleibt kein Konsolenfenster offen).
+
 **Optional — KI-Tagebuch-Zusammenfassungen aktivieren:** Lege eine API-Key-Datei unter `.secrets/deepseek.key` (oder `.secrets/minimax.key`) ab. Andernfalls nutzt das Tagebuch fröhlich den Offline-Template-Writer.
 
 ### 🧩 Technik & wie es gebaut ist
