@@ -1,0 +1,60 @@
+name: Update changelog
+
+# On every push to the default branch, regenerate the changelog from the git
+# history and commit it back into the README files.
+#
+# Loop safety: pushes made with the default GITHUB_TOKEN do NOT trigger new
+# workflow runs (GitHub's built-in guard) — that alone prevents an infinite loop.
+# The `if:` below is a second, independent guard: it skips our own
+# "[skip ci]" changelog commit, so loop safety still holds even if someone later
+# swaps the checkout token for a PAT or GitHub App token.
+on:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: changelog-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changelog:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need the whole history to build the changelog
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Generate changelog into the READMEs
+        run: node scripts/gen-changelog.js
+
+      - name: Commit & push if a README changed
+        run: |
+          if [ -z "$(git status --porcelain README.md README.de.md)" ]; then
+            echo "No changelog changes — nothing to commit."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md README.de.md
+          git commit -m "docs: update changelog [skip ci]"
+          # Retry against a concurrent push (non-fast-forward) on rapid pushes.
+          for i in 1 2 3; do
+            if git push; then
+              echo "Changelog pushed."
+              exit 0
+            fi
+            echo "push rejected — rebasing and retrying ($i/3)…"
+            git pull --rebase --autostash || true
+          done
+          echo "::error::could not push changelog after retries"
+          exit 1

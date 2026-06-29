@@ -1,0 +1,39 @@
+{
+  "name": "devpet",
+  "productName": "DevPet",
+  "version": "0.1.0",
+  "description": "A cute, always-on-top desktop companion that watches you code and writes you an automatic developer diary. / Ein süßes Desktop-Wesen, das dir beim Programmieren zusieht und ein automatisches Entwickler-Tagebuch schreibt.",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "icons": "node scripts/gen-icon.js"
+  },
+  "keywords": [
+    "electron",
+    "desktop-pet",
+    "desktop-companion",
+    "developer-tools",
+    "gamification",
+    "diary",
+    "productivity",
+    "transparent-window",
+    "always-on-top"
+  ],
+  "author": "Maurice",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MauricePutinas/devpet.git"
+  },
+  "bugs": {
+    "url": "https://github.com/MauricePutinas/devpet/issues"
+  },
+  "homepage": "https://github.com/MauricePutinas/devpet#readme",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "electron": "latest",
+    "jimp": "^0.22.12"
+  }
+}

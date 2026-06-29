@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src 'self' data:; media-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+  <link rel="stylesheet" href="pet.css" />
+</head>
+<body>
+  <div class="stage">
+    <div id="bubble" class="bubble"></div>
+    <div id="pet" class="pet" title="DevPet – ziehen · Doppelklick = Tagebuch · Mausrad = Größe">
+      <div class="shadow"></div>
+      <div id="facer" class="facer">
+        <video id="vidA" class="vid on" muted loop playsinline></video>
+        <video id="vidB" class="vid" muted loop playsinline></video>
+      </div>
+      <!-- state effects (sparkles on happy, Zzz on sleep) -->
+      <div id="fx" class="fx" aria-hidden="true">
+        <div class="sparkles">
+          <i style="--x:14%;--y:30%;--d:0s;--s:1"></i>
+          <i style="--x:30%;--y:14%;--d:.25s;--s:.7"></i>
+          <i style="--x:50%;--y:8%;--d:.5s;--s:1.1"></i>
+          <i style="--x:70%;--y:14%;--d:.15s;--s:.8"></i>
+          <i style="--x:86%;--y:30%;--d:.4s;--s:1"></i>
+          <i style="--x:22%;--y:50%;--d:.6s;--s:.6"></i>
+          <i style="--x:78%;--y:50%;--d:.35s;--s:.7"></i>
+          <i style="--x:50%;--y:40%;--d:.8s;--s:.5"></i>
+        </div>
+        <div class="zzz"><span>z</span><span>z</span><span>z</span></div>
+      </div>
+    </div>
+  </div>
+  <script src="pet.js"></script>
+</body>
+</html>

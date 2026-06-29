@@ -1,0 +1,37 @@
+# ───────────────────────── Secrets — NEVER commit ─────────────────────────
+.secrets/
+*.key
+*.pem
+.env
+.env.*
+
+# ───────────────────────── Dependencies / build ───────────────────────────
+node_modules/
+dist/
+out/
+release/
+build/
+
+# ───────────────────────── Runtime / user data ────────────────────────────
+# DevPet stores config + diary in the OS userData dir (outside the repo),
+# but ignore these names anyway as a safety net.
+config.json
+diary/
+*.log
+_petlog.txt
+
+# ───────────────────────── Raw / WIP asset material ────────────────────────
+assets/_*/
+assets/source/
+Wesen/
+samples-voice/
+
+# ───────────────────────── OS / editor cruft ──────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
