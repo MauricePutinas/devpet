@@ -226,6 +226,10 @@ Released under the **MIT License**. Built with ❤️ and Claude by **Maurice**.
 
 <!-- CHANGELOG:START -->
 
+### 2026-06-30
+
+- ✨ feat: automatic daily &amp; weekly DeepSeek reports + activity cards show edited files and expand on click `52ad5e6`
+
 ### 2026-06-29
 
 - 🐛 fix: stop .gitignore from excluding src/diary dirs — add missing diary UI + reporter + store `a64749d`
