@@ -51,6 +51,21 @@ function saveReport(key, report) {
   writeDay(key, day);
 }
 
+// Auto-generated daily report. Stored in a SEPARATE field so late-evening activity
+// (which nulls day.report via add()) can't wipe the 23:00 report.
+function saveAutoReport(key, report) {
+  const day = readDay(key);
+  day.autoReport = report;
+  writeDay(key, day);
+}
+
+// Weekly recap, stored on the day it was generated (Sunday).
+function saveWeekly(key, report) {
+  const day = readDay(key);
+  day.weekly = report;
+  writeDay(key, day);
+}
+
 // per-project AI headline cache: { projectKey: { h: contentHash, t: text } }
 function saveSummaries(key, summaries) {
   const day = readDay(key);
@@ -68,4 +83,4 @@ function listDates() {
     .reverse();
 }
 
-module.exports = { add, getDay, saveReport, saveSummaries, listDates, dayKey, DIR };
+module.exports = { add, getDay, readDay, saveReport, saveAutoReport, saveWeekly, saveSummaries, listDates, dayKey, DIR };

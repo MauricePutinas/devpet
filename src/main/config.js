@@ -33,6 +33,9 @@ const DEFAULTS = {
   progress: { xp: 0, level: 1 }, // gamification: the pet levels up as you code
   coins: 0, // 🪙 earned by coding, spent in the skin shop
   unlockedSkins: [], // ids of purchased locked skins (see creatures.js price field)
+  // Automatic diary reports: a daily summary at `hour`:00, plus a weekly recap on Sundays.
+  // Summarised with whatever AI key is available (DeepSeek preferred). App must be running.
+  autoReport: { enabled: true, hour: 23, daily: true, weekly: true },
 };
 
 let cache = null;

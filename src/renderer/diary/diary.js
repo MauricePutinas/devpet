@@ -27,7 +27,7 @@ const T = {
     reportPlaceholder: 'Choose "Generate report" so your pet sums up the day.',
     reportEmptyDay: 'No activity on this day yet. Once you code, your pet collects entries.',
     reportPickDay: 'Click "Generate report" so your pet sums up this day.',
-    fromClaude: '✨ by Claude', fromMiniMax: '✨ by MiniMax', local: '📝 local',
+    fromClaude: '✨ by Claude', fromMiniMax: '✨ by MiniMax', fromDeepSeek: '✨ by DeepSeek', local: '📝 local', weeklyTitle: 'Weekly recap',
     noEvents: 'No events.', showLess: '▲ Show less', remove: 'Remove', aiSession: 'AI coding session',
     noFolders: 'No folders yet — add your project.',
     todayPrefix: 'Today', days: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
@@ -44,6 +44,7 @@ const T = {
     otherProject: 'Other', noProjects: 'No named projects yet — switch to Timeline for the raw feed.',
     projectsN: (n) => `${n} project${n === 1 ? '' : 's'}`,
     sessionsN: (n) => `${n} AI session${n === 1 ? '' : 's'}`,
+    dCommits: 'Commits', dFiles: 'Edited files', dPrompts: 'Your messages',
     justNow: 'just now', minsAgo: (n) => `${n} min ago`, hrsAgo: (n) => `${n} h ago`,
   },
   de: {
@@ -65,7 +66,7 @@ const T = {
     reportPlaceholder: 'Wähle „Bericht erstellen", damit dein Pet den Tag zusammenfasst.',
     reportEmptyDay: 'Noch keine Aktivität an diesem Tag. Sobald du codest, sammelt dein Pet Einträge.',
     reportPickDay: 'Klick auf „Bericht erstellen", damit dein Pet diesen Tag zusammenfasst.',
-    fromClaude: '✨ von Claude', fromMiniMax: '✨ von MiniMax', local: '📝 lokal',
+    fromClaude: '✨ von Claude', fromMiniMax: '✨ von MiniMax', fromDeepSeek: '✨ von DeepSeek', local: '📝 lokal', weeklyTitle: 'Wochenrückblick',
     noEvents: 'Keine Ereignisse.', showLess: '▲ Weniger anzeigen', remove: 'Entfernen', aiSession: 'KI-Coding-Session',
     noFolders: 'Noch keine Ordner – füge dein Projekt hinzu.',
     todayPrefix: 'Heute', days: ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'],
@@ -82,6 +83,7 @@ const T = {
     otherProject: 'Sonstiges', noProjects: 'Noch keine benannten Projekte — wechsle zu „Verlauf" für die Roh-Liste.',
     projectsN: (n) => `${n} Projekt${n === 1 ? '' : 'e'}`,
     sessionsN: (n) => `${n} KI-Session${n === 1 ? '' : 's'}`,
+    dCommits: 'Commits', dFiles: 'Bearbeitete Dateien', dPrompts: 'Deine Nachrichten',
     justNow: 'gerade eben', minsAgo: (n) => `vor ${n} Min`, hrsAgo: (n) => `vor ${n} Std`,
   },
 };
@@ -270,18 +272,28 @@ async function loadDay() {
   const day = await diaryAPI.getDay(currentDate);
   el('dateSelect').value = currentDate;
 
-  // report
+  // report: prefer a manual report, else the auto-generated 23:00 one
   const badge = el('engineBadge');
-  if (day.report && day.report.text) {
-    el('report').innerHTML = renderMarkdownish(day.report.text);
+  const rep = (day.report && day.report.text) ? day.report
+    : (day.autoReport && day.autoReport.text) ? day.autoReport : null;
+  let html = '';
+  if (rep) {
+    html = renderMarkdownish(rep.text);
     badge.classList.remove('hidden');
-    if (day.report.engine === 'claude') { badge.textContent = tt('fromClaude'); badge.className = 'badge'; }
-    else if (day.report.engine === 'minimax') { badge.textContent = tt('fromMiniMax'); badge.className = 'badge'; }
+    const eng = rep.engine;
+    if (eng === 'claude') { badge.textContent = tt('fromClaude'); badge.className = 'badge'; }
+    else if (eng === 'minimax') { badge.textContent = tt('fromMiniMax'); badge.className = 'badge'; }
+    else if (eng === 'deepseek') { badge.textContent = tt('fromDeepSeek'); badge.className = 'badge'; }
     else { badge.textContent = tt('local'); badge.className = 'badge local'; }
   } else {
-    el('report').textContent = day.events.length ? tt('reportPickDay') : tt('reportEmptyDay');
     badge.classList.add('hidden');
   }
+  // weekly recap (generated on Sundays) appended below the daily entry
+  if (day.weekly && day.weekly.text) {
+    html += `<div class="weekly"><div class="weekly-h">📅 ${tt('weeklyTitle')}</div>${renderMarkdownish(day.weekly.text)}</div>`;
+  }
+  if (html) el('report').innerHTML = html;
+  else el('report').textContent = day.events.length ? tt('reportPickDay') : tt('reportEmptyDay');
 
   renderReportStats(day.events);
   projectSummaries = {}; // fetched fresh for this day
@@ -403,6 +415,7 @@ function projectGroups(events) {
       g.ai.add(`${e.tool || ''}|${(name || 'session').toLowerCase()}|${Math.floor((e.ts || 0) / 1800000)}`);
       if (e.tool) g.tools.add(e.tool);
       if (goodPrompt(e.prompt)) g.prompts.push(e);
+      cleanFiles(e.files).forEach((f) => g.files.add(baseName(f))); // files the AI edited = what was actually done
     } else if (e.type === 'files') {
       cleanFiles(e.files).forEach((f) => g.files.add(baseName(f)));
     }
@@ -417,40 +430,62 @@ function projectCard(g) {
   const li = document.createElement('li');
   li.className = 'event pcard';
   const aiN = g.ai.size, commitN = g.commits.length, fileN = g.files.size;
-  // combine commit messages + distinct prompts into one newest-first list of intents
-  const items = [
-    ...g.commits.map((c) => ({ text: c.message, ts: c.ts })),
-    ...g.prompts.map((e) => ({ text: e.prompt, ts: e.ts })),
-  ].sort((a, b) => b.ts - a.ts);
-  const seen = new Set(), intents = [];
-  for (const it of items) {
-    const k = String(it.text || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
-    if (!k || seen.has(k)) continue;
-    seen.add(k); intents.push(it.text);
-  }
-  // an AI-distilled one-liner is the headline when available; the user's own words then
-  // drop to the supporting detail. Without AI, the newest prompt/commit is the headline.
+  const filesList = [...g.files];
+
+  // newest-first, deduped. Commit messages describe WHAT WAS DONE; prompts are what the
+  // user asked — kept separate so the card leads with the outcome, not the request.
+  const dedupe = (items) => {
+    const seen = new Set(), out = [];
+    for (const it of items.sort((a, b) => b.ts - a.ts)) {
+      const k = String(it.text || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 40);
+      if (!k || seen.has(k)) continue;
+      seen.add(k); out.push(it);
+    }
+    return out;
+  };
+  const commitsU = dedupe(g.commits.map((c) => ({ text: c.message, ts: c.ts })));
+  const promptsU = dedupe(g.prompts.map((e) => ({ text: e.prompt, ts: e.ts })));
+
   const aiSummary = projectSummaries[g.key];
-  const headline = aiSummary ? truncate(aiSummary, 84)
-    : (intents.length ? truncate(intents[0], 84) : (fileN ? tt('filesEdited')(fileN) : tt('sessionsN')(aiN || 1)));
-  const rest = (aiSummary ? intents.slice(0, 3) : intents.slice(1, 4)).map((t) => truncate(t, 64));
-  const sub = rest.length
-    ? rest.map((t) => `<span class="intent">${esc(t)}</span>`).join('')
-    : (fileN && intents.length ? `<span class="intent dim">${esc([...g.files].slice(0, 6).join(' · '))}</span>` : '');
-  const ico = commitN ? '📦' : (aiN ? '🤖' : '✍️');
+  // headline = what was DONE: AI summary → newest commit → "N files edited" → newest prompt
+  const headline = aiSummary ? truncate(aiSummary, 90)
+    : commitsU.length ? truncate(commitsU[0].text, 90)
+      : fileN ? tt('filesEdited')(fileN)
+        : promptsU.length ? truncate(promptsU[0].text, 90)
+          : tt('sessionsN')(aiN || 1);
+
+  // collapsed "what was done" line = the edited files (concrete artifacts, not the prompt)
+  const doneFiles = filesList.length
+    ? filesList.slice(0, 8).join(' · ') + (filesList.length > 8 ? ` +${filesList.length - 8}` : '')
+    : '';
+
+  const ico = commitN ? '📦' : (fileN ? '✍️' : (aiN ? '🤖' : '•'));
   const chips = [];
   if (commitN) chips.push(`📦&nbsp;${commitN}`);
   if (aiN) chips.push(`🤖&nbsp;${aiN}`);
   if (fileN) chips.push(`✍️&nbsp;${fileN}`);
   if (g.tools.size) chips.push(esc([...g.tools].join(' · ')));
+
+  // expandable detail: full commits, every edited file, every message — untruncated
+  const parts = [];
+  if (commitsU.length) parts.push(`<div class="dsec"><div class="dlab">📦 ${tt('dCommits')}</div>${commitsU.map((c) => `<div class="dline">${esc(c.text)}</div>`).join('')}</div>`);
+  if (filesList.length) parts.push(`<div class="dsec"><div class="dlab">✍️ ${tt('dFiles')} · ${filesList.length}</div><div class="dfiles">${filesList.map((f) => `<span class="dfile">${esc(f)}</span>`).join('')}</div></div>`);
+  if (promptsU.length) parts.push(`<div class="dsec"><div class="dlab">💬 ${tt('dPrompts')}</div>${promptsU.map((p) => `<div class="dline you">${esc(p.text)}</div>`).join('')}</div>`);
+  const expandable = parts.length > 0;
+
   li.innerHTML = `
     <div class="ico">${ico}</div>
     <div class="body">
-      <div class="phead"><span class="pname">${esc(g.name || tt('otherProject'))}</span><span class="time">${relTime(g.last)}</span></div>
+      <div class="phead"><span class="pname">${esc(g.name || tt('otherProject'))}</span><span class="time">${relTime(g.last)}</span>${expandable ? '<span class="caret">▾</span>' : ''}</div>
       <div class="msg">${aiSummary ? '<span class="spark">✨</span> ' : ''}${esc(headline)}</div>
-      ${sub ? `<div class="sub intents">${sub}</div>` : ''}
+      ${doneFiles ? `<div class="done"><span class="done-i">✍️</span><span class="done-f">${esc(doneFiles)}</span></div>` : ''}
       <div class="pmeta">${chips.map((c) => `<span class="mchip">${c}</span>`).join('')}</div>
+      ${expandable ? `<div class="detail">${parts.join('')}</div>` : ''}
     </div>`;
+  if (expandable) {
+    li.classList.add('clickable');
+    li.addEventListener('click', () => li.classList.toggle('expanded'));
+  }
   return li;
 }
 

@@ -34,8 +34,10 @@ function extractText(content) {
 }
 
 // ---- per-tool chunk parsers → { lastUser, toolUses, messages, cwd } ----
+const EDIT_TOOLS = /^(Edit|Write|MultiEdit|NotebookEdit|Create|str_replace_editor)$/i;
 function parseClaude(chunk) {
   let lastUser = '', toolUses = 0, messages = 0, cwd = '';
+  const files = new Set();
   for (const line of chunk.split('\n')) {
     if (!line) continue;
     let obj; try { obj = JSON.parse(line); } catch { continue; }
@@ -43,9 +45,19 @@ function parseClaude(chunk) {
     if (obj.cwd) cwd = obj.cwd;
     const msg = obj.message || obj;
     if (obj.type === 'user' && msg && msg.content) { const t = extractText(msg.content).trim(); if (t && !t.startsWith('<')) lastUser = t; }
-    if (obj.type === 'assistant' && msg && Array.isArray(msg.content)) toolUses += msg.content.filter((p) => p && p.type === 'tool_use').length;
+    if (obj.type === 'assistant' && msg && Array.isArray(msg.content)) {
+      for (const p of msg.content) {
+        if (!p || p.type !== 'tool_use') continue;
+        toolUses++;
+        // Capture the files the assistant actually edited — this is "what was done",
+        // not just what the user asked. Only file-modifying tools (skip Read/Grep/Bash).
+        const inp = p.input || {};
+        const fp = inp.file_path || inp.notebook_path || inp.path;
+        if (fp && EDIT_TOOLS.test(p.name || '')) files.add(String(fp));
+      }
+    }
   }
-  return { lastUser, toolUses, messages, cwd };
+  return { lastUser, toolUses, messages, cwd, files: [...files] };
 }
 function parseCodex(chunk) {
   let lastUser = '', toolUses = 0, messages = 0, cwd = '';
@@ -153,6 +165,7 @@ class AIMonitor {
         type: 'ai', source: 'ai', tool: prov.label,
         project: prov.project(file, parsed.cwd) || prov.label,
         prompt: parsed.lastUser ? parsed.lastUser.slice(0, 140) : '',
+        files: (parsed.files || []).slice(0, 40), // files the AI edited this session
         toolUses: parsed.toolUses, messages: parsed.messages, ts: now,
       });
     }

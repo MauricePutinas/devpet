@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, screen, nativeImage, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, screen, nativeImage, shell, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -542,7 +542,7 @@ function registerIpc() {
     const cfg = config.load();
     const key = date || diaryStore.dayKey();
     const day = diaryStore.getDay(key);
-    const result = await reporter.generate(day.events, cfg.creature, cfg.ai, cfg.language);
+    const result = await reporter.generate(day.events, cfg.creature, aiCfgFor(cfg), cfg.language, 'day');
     diaryStore.saveReport(key, result);
     return result;
   });
@@ -556,21 +556,6 @@ function registerIpc() {
   // Key resolution: diary settings → local .secrets/minimax.key → env. Cached per project
   // (content-hashed) in the day file so a project is only re-summarised when it changes.
   const hashStr = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return h.toString(36); };
-  const readSecret = (name) => { try { return fs.readFileSync(path.join(__dirname, '..', '..', '.secrets', name), 'utf8').trim() || null; } catch { return null; } };
-  const resolveAi = (cfg) => {
-    const a = cfg.ai || {};
-    if (a.apiKey) {
-      const m = a.model || '';
-      const provider = /^claude/i.test(m) ? 'anthropic' : /deepseek/i.test(m) ? 'deepseek' : 'minimax';
-      return { provider, apiKey: a.apiKey, model: a.model };
-    }
-    const ds = readSecret('deepseek.key') || process.env.DEEPSEEK_API_KEY; // cheapest → preferred
-    if (ds) return { provider: 'deepseek', apiKey: ds, model: 'deepseek-v4-flash' };
-    const mm = readSecret('minimax.key') || process.env.MINIMAX_API_KEY;
-    if (mm) return { provider: 'minimax', apiKey: mm, model: 'MiniMax-Text-01' };
-    if (process.env.ANTHROPIC_API_KEY) return { provider: 'anthropic', apiKey: process.env.ANTHROPIC_API_KEY, model: 'claude-haiku-4-5-20251001' };
-    return null;
-  };
   ipcMain.handle('activity:summaries', async (_e, date) => {
     try {
       const cfg = config.load();
@@ -631,6 +616,113 @@ function seedDemoEvents() {
   demo.forEach((e) => diaryStore.add(e));
 }
 
+// ---------------- AI key resolution + automatic reports ----------------
+function readSecret(name) {
+  try { return fs.readFileSync(path.join(__dirname, '..', '..', '.secrets', name), 'utf8').trim() || null; } catch { return null; }
+}
+function resolveAi(cfg) {
+  const a = cfg.ai || {};
+  if (a.apiKey) {
+    const m = a.model || '';
+    const provider = /^claude/i.test(m) ? 'anthropic' : /deepseek/i.test(m) ? 'deepseek' : 'minimax';
+    return { provider, apiKey: a.apiKey, model: a.model };
+  }
+  const ds = readSecret('deepseek.key') || process.env.DEEPSEEK_API_KEY; // cheapest → preferred
+  if (ds) return { provider: 'deepseek', apiKey: ds, model: 'deepseek-v4-flash' };
+  const mm = readSecret('minimax.key') || process.env.MINIMAX_API_KEY;
+  if (mm) return { provider: 'minimax', apiKey: mm, model: 'MiniMax-Text-01' };
+  if (process.env.ANTHROPIC_API_KEY) return { provider: 'anthropic', apiKey: process.env.ANTHROPIC_API_KEY, model: 'claude-haiku-4-5-20251001' };
+  return null;
+}
+// turn a resolved key into the aiConfig reporter.generate expects (always "enabled")
+function aiCfgFor(cfg) {
+  const ai = resolveAi(cfg);
+  return ai ? { enabled: true, ...ai } : { enabled: false };
+}
+
+let reportTimer = null;
+function notifyDiaryUpdated() { if (diaryWindow && !diaryWindow.isDestroyed()) diaryWindow.webContents.send('events-updated'); }
+function notifyUser(title, body) {
+  try { if (Notification.isSupported()) new Notification({ title, body, icon: iconImage('icon.png') }).show(); } catch {}
+}
+
+async function runDailyReport(key) {
+  const cfg = config.load();
+  key = key || diaryStore.dayKey();
+  const day = diaryStore.getDay(key);
+  if (!day.events.length) return null;
+  const result = await reporter.generate(day.events, cfg.creature, aiCfgFor(cfg), cfg.language, 'day');
+  diaryStore.saveAutoReport(key, result);
+  notifyDiaryUpdated();
+  notifyUser(cfg.language === 'de' ? '📔 Tagesbericht fertig' : '📔 Daily report ready',
+    cfg.language === 'de' ? `${reporter.persona(cfg.creature).name} hat deinen Coding-Tag zusammengefasst.`
+      : `${reporter.persona(cfg.creature).name} summed up your coding day.`);
+  return result;
+}
+
+// the last 7 days of events (including the given / today's day)
+function weekEvents(endKey) {
+  const end = endKey ? new Date(endKey + 'T12:00:00') : new Date();
+  const out = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(end); d.setDate(d.getDate() - i);
+    out.push(...(diaryStore.getDay(diaryStore.dayKey(d.getTime())).events || []));
+  }
+  return out;
+}
+
+async function runWeeklyReport(key) {
+  const cfg = config.load();
+  key = key || diaryStore.dayKey();
+  const events = weekEvents(key);
+  if (!events.length) return null;
+  const result = await reporter.generate(events, cfg.creature, aiCfgFor(cfg), cfg.language, 'week');
+  diaryStore.saveWeekly(key, result);
+  notifyDiaryUpdated();
+  notifyUser(cfg.language === 'de' ? '📅 Wochenbericht fertig' : '📅 Weekly recap ready',
+    cfg.language === 'de' ? `${reporter.persona(cfg.creature).name} hat deine Coding-Woche zusammengefasst.`
+      : `${reporter.persona(cfg.creature).name} recapped your coding week.`);
+  return result;
+}
+
+// Arm a one-shot timer for the next `hour`:00; on fire write the daily report (+ the
+// weekly recap on Sundays), then re-arm for the next day.
+function scheduleReports() {
+  if (reportTimer) { clearTimeout(reportTimer); reportTimer = null; }
+  const ar = config.load().autoReport || {};
+  if (ar.enabled === false) return;
+  const hour = Number.isInteger(ar.hour) ? ar.hour : 23;
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(hour, 0, 0, 0);
+  if (next <= now) next.setDate(next.getDate() + 1);
+  reportTimer = setTimeout(async () => {
+    try {
+      const a = config.load().autoReport || {};
+      if (a.enabled !== false) {
+        if (a.daily !== false) await runDailyReport();
+        if (a.weekly !== false && new Date().getDay() === 0) await runWeeklyReport(); // Sunday
+      }
+    } catch (e) { console.error('auto report failed:', e.message); }
+    scheduleReports();
+  }, next - now);
+}
+
+// If the app launches after the scheduled hour and today's report isn't written yet,
+// catch up — so a 23:00 that was missed (app was closed) still produces a report.
+async function catchUpReports() {
+  try {
+    const ar = config.load().autoReport || {};
+    if (ar.enabled === false) return;
+    const hour = Number.isInteger(ar.hour) ? ar.hour : 23;
+    if (new Date().getHours() < hour) return;
+    const key = diaryStore.dayKey();
+    const day = diaryStore.getDay(key);
+    if (ar.daily !== false && day.events.length && !day.autoReport) await runDailyReport(key);
+    if (ar.weekly !== false && new Date().getDay() === 0 && !day.weekly) await runWeeklyReport(key);
+  } catch (e) { console.error('catch-up report failed:', e.message); }
+}
+
 // ---------------- Lifecycle ----------------
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -647,6 +739,8 @@ if (!gotLock) {
     startCursorBroadcast();
     // First run: if there are no events at all yet, seed a small demo day.
     if (diaryStore.listDates().length === 0) seedDemoEvents();
+    scheduleReports();   // auto daily report at 23:00 (+ weekly recap on Sundays)
+    catchUpReports();    // …and catch up if the app launched after that time
   });
 
   app.on('window-all-closed', () => { /* stay alive in tray */ });

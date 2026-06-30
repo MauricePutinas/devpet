@@ -145,14 +145,15 @@ function fmtTime(ts) {
 }
 
 // ---- local (offline) diary writer ----
-function localReport(events, creature, lang) {
+function localReport(events, creature, lang, period = 'day') {
   const L = langOf(lang);
   const p = persona(creature);
+  const week = period === 'week';
   const q = L === 'de' ? (s) => `„${s}"` : (s) => `"${s}"`;
   if (!events.length) {
     return L === 'de'
-      ? `${p.emoji} ${p.name} hat heute noch nichts gesehen. Fang an zu coden – ich pass auf! ✨`
-      : `${p.emoji} ${p.name} hasn't seen anything yet today. Start coding — I'm watching! ✨`;
+      ? `${p.emoji} ${p.name} hat ${week ? 'diese Woche' : 'heute'} noch nichts gesehen. Fang an zu coden – ich pass auf! ✨`
+      : `${p.emoji} ${p.name} hasn't seen anything ${week ? 'this week' : 'yet today'}. Start coding — I'm watching! ✨`;
   }
   const s = buildStats(events);
   const span = s.first && s.last ? `${fmtTime(s.first)}–${fmtTime(s.last)}` : '';
@@ -162,7 +163,7 @@ function localReport(events, creature, lang) {
 
   if (L === 'de') {
     lines.push(`${p.emoji} Liebes Tagebuch,`, '');
-    lines.push(`heute war ein produktiver Tag${span ? ` (${span})` : ''}! Mein Mensch hat an ${projects.length} Projekt${projects.length === 1 ? '' : 'en'} gearbeitet${projects.length ? `: ${projList}` : ''}.`, '');
+    lines.push(`${week ? 'diese Woche war produktiv' : 'heute war ein produktiver Tag'}${span ? ` (${span})` : ''}! Mein Mensch hat an ${projects.length} Projekt${projects.length === 1 ? '' : 'en'} gearbeitet${projects.length ? `: ${projList}` : ''}.`, '');
     if (s.commits.length) {
       lines.push(`📦 **${s.commits.length} Commit${s.commits.length === 1 ? '' : 's'}**`);
       for (const c of s.commits.slice(0, 8)) lines.push(`   • ${fmtTime(c.ts)} – ${q(truncate(c.message, 60))} (${c.hash}, ${c.filesChanged} Dateien)`);
@@ -178,7 +179,7 @@ function localReport(events, creature, lang) {
     lines.push(`Ein guter Tag. ${p.call}! – Dein ${p.name}`);
   } else {
     lines.push(`${p.emoji} Dear diary,`, '');
-    lines.push(`today was a productive day${span ? ` (${span})` : ''}! My human worked on ${projects.length} project${projects.length === 1 ? '' : 's'}${projects.length ? `: ${projList}` : ''}.`, '');
+    lines.push(`${week ? 'this week was productive' : 'today was a productive day'}${span ? ` (${span})` : ''}! My human worked on ${projects.length} project${projects.length === 1 ? '' : 's'}${projects.length ? `: ${projList}` : ''}.`, '');
     if (s.commits.length) {
       lines.push(`📦 **${s.commits.length} commit${s.commits.length === 1 ? '' : 's'}**`);
       for (const c of s.commits.slice(0, 8)) lines.push(`   • ${fmtTime(c.ts)} – ${q(truncate(c.message, 60))} (${c.hash}, ${c.filesChanged} files)`);
@@ -283,18 +284,20 @@ function callMiniMax({ apiKey, model, prompt, system }) {
   });
 }
 
-// ---- optional DeepSeek-API writer (OpenAI-compatible, very cheap; forces JSON) ----
-function callDeepSeek({ apiKey, model, prompt, system }) {
+// ---- optional DeepSeek-API writer (OpenAI-compatible, very cheap) ----
+// json=true forces a JSON object (used for the per-project headlines); json=false
+// returns free-form prose (used for the daily/weekly diary report).
+function callDeepSeek({ apiKey, model, prompt, system, json = true }) {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify({
       model: model || 'deepseek-v4-flash',
       messages: [
-        { role: 'system', content: system || 'You reply only as compact JSON.' },
+        { role: 'system', content: system || (json ? 'You reply only as compact JSON.' : 'You are a cute desktop pet writing a warm developer diary.') },
         { role: 'user', content: prompt },
       ],
-      max_tokens: 700,
-      temperature: 0.3,
-      response_format: { type: 'json_object' },
+      max_tokens: 800,
+      temperature: json ? 0.3 : 0.8,
+      ...(json ? { response_format: { type: 'json_object' } } : {}),
     });
     const req = https.request(
       {
@@ -328,56 +331,62 @@ function callDeepSeek({ apiKey, model, prompt, system }) {
   });
 }
 
-async function aiReport(events, creature, aiConfig, lang) {
+async function aiReport(events, creature, aiConfig, lang, period = 'day') {
   const L = langOf(lang);
   const p = persona(creature);
   const s = buildStats(events);
   const provider = (aiConfig && aiConfig.provider) || 'minimax';
   const apiKey =
     (aiConfig && aiConfig.apiKey) ||
-    (provider === 'minimax' ? process.env.MINIMAX_API_KEY : process.env.ANTHROPIC_API_KEY) ||
+    (provider === 'minimax' ? process.env.MINIMAX_API_KEY
+      : provider === 'deepseek' ? process.env.DEEPSEEK_API_KEY
+      : process.env.ANTHROPIC_API_KEY) ||
     '';
   if (!apiKey) throw new Error('no api key');
 
+  const week = period === 'week';
   const facts = {
-    projects: [...s.projects].slice(0, 8),
+    projects: [...s.projects].slice(0, 10),
     timespan: s.first ? `${fmtTime(s.first)}–${fmtTime(s.last)}` : '',
     commits: s.commits.map((c) => ({ msg: c.message, files: c.filesChanged })),
     files_edited: s.filesTouched.size,
     ai_sessions: s.aiSessions,
-    ai_topics: s.aiPrompts.slice(0, 8),
+    ai_topics: s.aiPrompts.slice(0, 10),
   };
   const system = L === 'de'
     ? 'Du bist ein süßes Desktop-Haustier, das ein warmherziges Entwickler-Tagebuch schreibt.'
     : 'You are a cute desktop pet writing a warm, playful developer diary.';
   const prompt = L === 'de'
-    ? `Du bist „${p.name}", ein süßes ${creature}-Desktop-Haustier eines Programmierers. ` +
-      `Schreibe einen kurzen, warmherzigen, leicht verspielten Tagebuch-Eintrag (Deutsch, 1. Person, max. 180 Wörter) ` +
-      `über den Coding-Tag deines Menschen. Nutze ein paar passende Emojis, bleib konkret anhand der Fakten, ` +
-      `erfinde nichts dazu. Beende mit einer kleinen Grußformel.\n\nFakten als JSON:\n${JSON.stringify(facts, null, 2)}`
-    : `You are "${p.name}", a cute ${creature} desktop pet belonging to a programmer. ` +
-      `Write a short, warm, slightly playful diary entry (English, first person, max 180 words) ` +
-      `about your human's coding day. Use a few fitting emojis, stay concrete based on the facts, ` +
-      `don't make anything up. End with a little sign-off.\n\nFacts as JSON:\n${JSON.stringify(facts, null, 2)}`;
+    ? `Du bist „${p.name}", ein süßes Desktop-Haustier eines Programmierers. ` +
+      (week
+        ? `Schreibe einen WOCHENRÜCKBLICK (Deutsch, 1. Person, max. 260 Wörter) über die Coding-WOCHE deines Menschen: was lief, woran wurde gearbeitet, kleine Höhepunkte. `
+        : `Schreibe einen kurzen, warmherzigen Tagebuch-Eintrag (Deutsch, 1. Person, max. 180 Wörter) über den Coding-TAG deines Menschen. `) +
+      `Nutze ein paar passende Emojis, bleib konkret anhand der Fakten, erfinde nichts dazu. Beende mit einer kleinen Grußformel.\n\nFakten als JSON:\n${JSON.stringify(facts, null, 2)}`
+    : `You are "${p.name}", a cute desktop pet belonging to a programmer. ` +
+      (week
+        ? `Write a WEEKLY recap (English, first person, max 260 words) of your human's coding WEEK: what happened, what they worked on, little highlights. `
+        : `Write a short, warm diary entry (English, first person, max 180 words) about your human's coding DAY. `) +
+      `Use a few fitting emojis, stay concrete based on the facts, don't make anything up. End with a little sign-off.\n\nFacts as JSON:\n${JSON.stringify(facts, null, 2)}`;
 
-  const model = (aiConfig && aiConfig.model) || (provider === 'minimax' ? 'MiniMax-Text-01' : 'claude-sonnet-4-6');
+  const model = (aiConfig && aiConfig.model) ||
+    (provider === 'minimax' ? 'MiniMax-Text-01' : provider === 'deepseek' ? 'deepseek-v4-flash' : 'claude-sonnet-4-6');
   const text =
-    provider === 'minimax'
-      ? await callMiniMax({ apiKey, model, prompt, system })
-      : await callClaude({ apiKey, model, prompt, system });
-  return text || localReport(events, creature, lang);
+    provider === 'minimax' ? await callMiniMax({ apiKey, model, prompt, system })
+    : provider === 'deepseek' ? await callDeepSeek({ apiKey, model, prompt, system, json: false })
+    : await callClaude({ apiKey, model, prompt, system });
+  return text || localReport(events, creature, lang, period);
 }
 
-async function generate(events, creature, aiConfig, lang) {
+async function generate(events, creature, aiConfig, lang, period = 'day') {
   if (aiConfig && aiConfig.enabled) {
     const provider = aiConfig.provider || 'minimax';
     try {
-      return { text: await aiReport(events, creature, aiConfig, lang), engine: provider };
+      return { text: await aiReport(events, creature, aiConfig, lang, period), engine: provider, period };
     } catch (e) {
-      return { text: localReport(events, creature, lang), engine: 'local', warning: e.message };
+      return { text: localReport(events, creature, lang, period), engine: 'local', period, warning: e.message };
     }
   }
-  return { text: localReport(events, creature, lang), engine: 'local' };
+  return { text: localReport(events, creature, lang, period), engine: 'local', period };
 }
 
 // ---- per-project AI headline summaries (for the Activity "by project" view) ----
