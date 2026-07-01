@@ -305,6 +305,7 @@ Veröffentlicht unter der **MIT-Lizenz**. Gebaut mit ❤️ und Claude von **Mau
 
 ### 2026-07-01
 
+- ✨ feat: pixel-art Volt idle + AltGr text capture + trophy/icon art `88d56ce`
 - ✨ feat: automation engine (macro record/replay + pattern detection), achievements, streaks, focus timer, wellness nudges, ask-your-pet chat, LAN companion + cloud relay, shareable recap card; fix German QWERTZ text detection &amp; recap export dialog `b42c615`
 
 ### 2026-06-30
