@@ -19,6 +19,9 @@ const LINES = {
     commitTest: ["Tests! Exemplary 🧪", "Green, green, green? 🟢", "Testing makes you strong 💪", "Better safe than sorry 🧪"],
     commitBig: ["Huge commit! 💪", "Big one! 🚀", "Wow, lots going on! ✨", "Giant leap forward! 🚀"],
     commit: ["Commit saved! 🎉", "Cleanly committed ✅", "Another piece done! 🎉", "Nice commit! 👏"],
+    macro: ["Got it — approved! 🤖", "New trick learned! ⚙️", "Automation saved! ✅", "I'll remember that! 🧠"],
+    macroReplay: ["Automated! ⚡", "Done in a blink! 🤖", "Saved you some time! ⏱️", "Macro replayed! 🎬"],
+    focus: ["Great focus session! 🎯", "Deep work, done! 🧘", "That's how it's done! 🎯", "Focus complete! ✨"],
   },
   de: {
     night: ['Noch wach? 🌙', 'Die Bugs schlafen jetzt auch 😴', 'Geh ins Bett! 🛏️', 'Ein letzter Commit, dann Schluss? 🌛', 'Spätschicht, hm? ☕'],
@@ -28,6 +31,9 @@ const LINES = {
     commitTest: ['Tests! Vorbildlich 🧪', 'Grün, grün, grün? 🟢', 'Testen macht stark 💪', 'Sicher ist sicher 🧪'],
     commitBig: ['Riesen-Commit! 💪', 'Großes Ding! 🚀', 'Wow, da war viel los! ✨', 'Mega-Sprung nach vorn! 🚀'],
     commit: ['Commit gespeichert! 🎉', 'Sauber abgespeichert ✅', 'Wieder ein Stück fertig! 🎉', 'Schöner Commit! 👏'],
+    macro: ['Freigegeben – gemerkt! 🤖', 'Neuer Trick gelernt! ⚙️', 'Automatisierung gespeichert! ✅', 'Das merk ich mir! 🧠'],
+    macroReplay: ['Automatisiert! ⚡', 'Im Nu erledigt! 🤖', 'Zeit gespart! ⏱️', 'Makro abgespielt! 🎬'],
+    focus: ['Starke Fokus-Session! 🎯', 'Deep Work, erledigt! 🧘', 'Genau so! 🎯', 'Fokus abgeschlossen! ✨'],
   },
 };
 function pick(arr, seed) { return arr[Math.floor((seed || 0) / 1000) % arr.length] || arr[0]; }
@@ -58,6 +64,19 @@ function reaction(event, creature, lang) {
   if (event.type === 'ai') {
     if (night) return pick(P.night, event.ts);
     return event.prompt ? `${pick(P.ai, event.ts)}\n${q(truncate(event.prompt, 50))}` : pick(P.ai, event.ts);
+  }
+  if (event.type === 'macro') {
+    if (night) return pick(P.night, event.ts);
+    return event.name ? `${pick(P.macro, event.ts)}\n${q(truncate(event.name, 44))}` : pick(P.macro, event.ts);
+  }
+  if (event.type === 'macroReplay') {
+    if (night) return pick(P.night, event.ts);
+    const secs = Math.max(1, Math.round((event.durationMs || 0) / 1000));
+    return `${pick(P.macroReplay, event.ts)} (${secs}s ${L === 'de' ? 'gespart' : 'saved'})`;
+  }
+  if (event.type === 'focus') {
+    const mins = Math.max(1, Math.round((event.durationMs || 0) / 60000));
+    return `${pick(P.focus, event.ts)} (${mins}min)`;
   }
   return `${p.emoji} …`;
 }
@@ -115,13 +134,15 @@ function goodPrompt(p) {
 
 // ---- aggregate stats ----
 function buildStats(events) {
-  const stats = { commits: [], fileBursts: 0, filesTouched: new Set(), aiSessions: 0, aiMessages: 0, aiPrompts: [], projects: [], first: null, last: null };
+  const stats = { commits: [], fileBursts: 0, filesTouched: new Set(), aiSessions: 0, aiMessages: 0, aiPrompts: [], projects: [], first: null, last: null, macrosCreated: 0, macroReplays: 0, macroTimeSavedMs: 0 };
   const aiSeen = new Set();
   const prompts = new Map();
   for (const e of events) {
     stats.first = stats.first == null ? e.ts : Math.min(stats.first, e.ts);
     stats.last = stats.last == null ? e.ts : Math.max(stats.last, e.ts);
     if (e.type === 'commit') { stats.commits.push(e); continue; }
+    if (e.type === 'macro') { stats.macrosCreated++; continue; }
+    if (e.type === 'macroReplay') { stats.macroReplays++; stats.macroTimeSavedMs += e.durationMs || 0; continue; }
     if (e.type === 'files') {
       const mf = (e.files || []).filter(meaningfulFile);
       if (mf.length) { stats.fileBursts++; mf.forEach((f) => stats.filesTouched.add(`${e.project}/${f}`)); }
@@ -176,6 +197,10 @@ function localReport(events, creature, lang, period = 'day') {
       if (s.aiPrompts.length) { lines.push('   Worum es ging:'); for (const x of s.aiPrompts.slice(0, 5)) lines.push(`   • ${q(truncate(x, 70))}`); }
       lines.push('');
     }
+    if (s.macrosCreated || s.macroReplays) {
+      const savedSec = Math.round(s.macroTimeSavedMs / 1000);
+      lines.push(`🤖 **${s.macrosCreated} neue Automatisierung${s.macrosCreated === 1 ? '' : 'en'}** freigegeben, **${s.macroReplays}× abgespielt** – ca. ${savedSec}s gespart.`, '');
+    }
     lines.push(`Ein guter Tag. ${p.call}! – Dein ${p.name}`);
   } else {
     lines.push(`${p.emoji} Dear diary,`, '');
@@ -191,6 +216,10 @@ function localReport(events, creature, lang, period = 'day') {
       lines.push(`🤖 **${s.aiSessions} AI coding session${s.aiSessions === 1 ? '' : 's'}** (${s.aiMessages} messages).`);
       if (s.aiPrompts.length) { lines.push('   What it was about:'); for (const x of s.aiPrompts.slice(0, 5)) lines.push(`   • ${q(truncate(x, 70))}`); }
       lines.push('');
+    }
+    if (s.macrosCreated || s.macroReplays) {
+      const savedSec = Math.round(s.macroTimeSavedMs / 1000);
+      lines.push(`🤖 **${s.macrosCreated} new automation${s.macrosCreated === 1 ? '' : 's'}** approved, **replayed ${s.macroReplays}×** – about ${savedSec}s saved.`, '');
     }
     lines.push(`A good day. ${p.call}! — Your ${p.name}`);
   }
@@ -459,4 +488,73 @@ async function summarize(projects, aiConfig, lang) {
   return parseJsonMap(raw);
 }
 
-module.exports = { reaction, generate, buildStats, persona, projectIntents, summarize };
+// Best-effort short description of a detected automation candidate, using whichever AI
+// key is already configured for the diary (never a new key/consent — reuses the exact
+// same resolved config). Returns null on any failure/missing key so the caller can fall
+// back to the humanized step preview; this only ever labels a suggestion, it never
+// changes whether/how it gets approved or replayed.
+async function describeAutomation(previewLines, aiConfig, lang) {
+  if (!aiConfig || !aiConfig.apiKey || !previewLines || !previewLines.length) return null;
+  const L = langOf(lang);
+  const system = L === 'de'
+    ? 'Du beschreibst wiederkehrende Computer-Arbeitsabläufe extrem knapp.'
+    : 'You describe repeating computer workflows extremely concisely.';
+  const prompt = (L === 'de'
+    ? 'Hier ist eine Abfolge von Tastatur-/Mausaktionen, die ein Nutzer wiederholt hat:\n\n'
+    : "Here's a sequence of keyboard/mouse actions a user repeated:\n\n")
+    + previewLines.slice(0, 20).join('\n')
+    + (L === 'de'
+      ? '\n\nBeschreibe in maximal 6 Wörtern, WAS das für ein Arbeitsschritt ist (z. B. "Text von Excel nach Outlook kopieren"). Nur die Beschreibung, kein Punkt, keine Anführungszeichen.'
+      : '\n\nDescribe in max 6 words WHAT kind of task this is (e.g. "Copy text from Excel to Outlook"). Just the description, no period, no quotes.');
+  const provider = aiConfig.provider || 'deepseek';
+  const model = aiConfig.model || (provider === 'deepseek' ? 'deepseek-v4-flash' : provider === 'minimax' ? 'MiniMax-Text-01' : 'claude-haiku-4-5-20251001');
+  try {
+    const text = provider === 'anthropic' ? await callClaude({ apiKey: aiConfig.apiKey, model, prompt, system })
+      : provider === 'deepseek' ? await callDeepSeek({ apiKey: aiConfig.apiKey, model, prompt, system, json: false })
+      : await callMiniMax({ apiKey: aiConfig.apiKey, model, prompt, system });
+    const clean = (text || '').replace(/^["'„]+|["'"]+$/g, '').trim().slice(0, 60);
+    return clean || null;
+  } catch {
+    return null;
+  }
+}
+
+// "Ask your pet" — a free-form question answered from real recent-activity facts only
+// (same resolved AI key as the diary report; no new consent/key needed). Returns null
+// on any failure/missing key so the caller can show a friendly fallback message.
+async function askPet(question, events, aiConfig, lang, history) {
+  if (!aiConfig || !aiConfig.apiKey) return null;
+  const L = langOf(lang);
+  const s = buildStats(events);
+  const facts = {
+    projects: [...s.projects].slice(0, 10),
+    commits: s.commits.length,
+    files_edited: s.filesTouched.size,
+    ai_sessions: s.aiSessions,
+    macros_created: s.macrosCreated,
+    macro_replays: s.macroReplays,
+    macro_time_saved_sec: Math.round(s.macroTimeSavedMs / 1000),
+  };
+  const system = L === 'de'
+    ? 'Du bist ein süßes Desktop-Haustier, das seinem Menschen freundlich und knapp über dessen eigene Coding-Aktivität Auskunft gibt.'
+    : 'You are a cute desktop pet answering your human\'s questions about their own coding activity, friendly and concise.';
+  const historyBlock = (history && history.length)
+    ? '\n\n' + (L === 'de' ? 'Bisheriger Gesprächsverlauf:' : 'Conversation so far:') + '\n'
+      + history.slice(-8).map((h) => `${h.role === 'user' ? (L === 'de' ? 'Mensch' : 'Human') : (L === 'de' ? 'Pet' : 'Pet')}: ${h.text}`).join('\n')
+    : '';
+  const prompt = L === 'de'
+    ? `Frage deines Menschen: "${question}"\n\nFakten zur letzten Zeit (JSON):\n${JSON.stringify(facts, null, 2)}${historyBlock}\n\nAntworte knapp (max. 80 Wörter), freundlich, auf Deutsch, NUR basierend auf diesen Fakten. Berücksichtige den bisherigen Verlauf bei Anschlussfragen. Erfinde nichts dazu.`
+    : `Your human's question: "${question}"\n\nFacts about their recent activity (JSON):\n${JSON.stringify(facts, null, 2)}${historyBlock}\n\nAnswer concisely (max 80 words), friendly, in English, based ONLY on these facts. Take the conversation so far into account for follow-up questions. Don't make anything up.`;
+  const provider = aiConfig.provider || 'deepseek';
+  const model = aiConfig.model || (provider === 'deepseek' ? 'deepseek-v4-flash' : provider === 'minimax' ? 'MiniMax-Text-01' : 'claude-haiku-4-5-20251001');
+  try {
+    const text = provider === 'anthropic' ? await callClaude({ apiKey: aiConfig.apiKey, model, prompt, system })
+      : provider === 'deepseek' ? await callDeepSeek({ apiKey: aiConfig.apiKey, model, prompt, system, json: false })
+      : await callMiniMax({ apiKey: aiConfig.apiKey, model, prompt, system });
+    return (text || '').trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+module.exports = { reaction, generate, buildStats, persona, projectIntents, summarize, describeAutomation, askPet };

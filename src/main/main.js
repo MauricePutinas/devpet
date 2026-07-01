@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, screen, nativeImage, shell, Notification } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, screen, nativeImage, shell, Notification, globalShortcut, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -34,6 +34,8 @@ const TR = {
     bubbles: 'Speech bubbles', sound: 'Sound', voice: '🗣️ Pet voice (Edge · free)',
     language: '🌐 Language', startup: 'Launch on Windows start', addFolder: '📂 Add project folder…',
     hidePet: 'Hide pet', showPet: 'Show pet', quit: 'Quit',
+    recordStart: '⏺ Start recording (Ctrl+Alt+R)', recordStop: '⏹ Stop recording (Ctrl+Alt+R)',
+    replayLast: '▶ Replay last macro (Ctrl+Alt+P)',
   },
   de: {
     openDiary: '📖 Tagebuch öffnen', chooseCreature: 'Wesen wählen', size: 'Größe',
@@ -42,6 +44,8 @@ const TR = {
     bubbles: 'Sprechblasen', sound: 'Sound', voice: '🗣️ Pet-Stimme (Edge · gratis)',
     language: '🌐 Sprache', startup: 'Beim Windows-Start öffnen', addFolder: '📂 Projektordner hinzufügen…',
     hidePet: 'Pet ausblenden', showPet: 'Pet einblenden', quit: 'Beenden',
+    recordStart: '⏺ Aufnahme starten (Strg+Alt+R)', recordStop: '⏹ Aufnahme stoppen (Strg+Alt+R)',
+    replayLast: '▶ Letztes Makro abspielen (Strg+Alt+P)',
   },
 };
 function tr(lang, key) { return TR[lang === 'de' ? 'de' : 'en'][key]; }
@@ -56,6 +60,17 @@ const { CREATURES, isUnlocked, priceOf } = require('../shared/creatures');
 const { GitMonitor } = require('./monitors/gitMonitor');
 const { FileMonitor } = require('./monitors/fileMonitor');
 const { AIMonitor } = require('./monitors/aiMonitor');
+const { Recorder } = require('./automation/recorder');
+const { replayMacro } = require('./automation/player');
+const macroStore = require('./automation/macroStore');
+const { humanizeSteps } = require('./automation/humanize');
+const { PatternDetector } = require('./automation/patternDetector');
+const { TextPatternDetector } = require('./automation/textPatternDetector');
+const { ACHIEVEMENTS, nameOf: achievementName, checkNew: checkNewAchievements } = require('../shared/achievements');
+const streaks = require('./streaks');
+const crypto = require('crypto');
+const https = require('https');
+const { LanServer, localIPs, PORT: LAN_PORT } = require('./lanServer');
 
 const ASSETS = path.join(__dirname, '..', '..', 'assets');
 const PET_W = 300; // base size at scale 1.0
@@ -84,6 +99,46 @@ let petWindow = null;
 let diaryWindow = null;
 let tray = null;
 let monitors = [];
+const recorder = new Recorder();
+let pendingMacro = null; // { steps, durationMs } — recorded but not yet reviewed/approved
+let chatHistory = []; // "ask your pet" conversation memory, cleared when the diary window closes
+let lastActivityLine = ''; // most recent pet reaction line, surfaced on the LAN status page
+let pendingSuggestions = []; // [{ id, steps, durationMs, windowTitle, detectedAt }] — auto-detected candidates, never auto-saved
+const MAX_SUGGESTIONS = 15;
+// Single funnel for both detectors — click/hotkey patterns AND typed-text patterns end
+// up in the same suggestion list, reviewed/approved through the exact same panel.
+function handleSuggestion(kind, candidate) {
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const suggestion = { id, kind, detectedAt: Date.now(), label: null, ...candidate };
+  pendingSuggestions.push(suggestion);
+  if (pendingSuggestions.length > MAX_SUGGESTIONS) pendingSuggestions.shift();
+  broadcastMacroState();
+
+  // Just a heads-up bubble — never logged to the diary, never scored. Approving/
+  // dismissing the suggestion still goes through the exact same review flow.
+  const live = config.load();
+  if (petWindow && !petWindow.isDestroyed() && live.speechEnabled) {
+    const line = live.language === 'de' ? 'Das mache ich schon 3×… Vorschlag im Tagebuch! 🔍' : "Noticed that 3× now… suggestion waiting in the diary! 🔍";
+    petWindow.webContents.send('suggestion-bubble', line);
+  }
+
+  // Best-effort AI label, reusing whatever diary AI key is already configured — never
+  // blocks the suggestion from showing immediately, and only ever changes its headline.
+  const aiCfg = resolveAi(live);
+  if (aiCfg) {
+    const { lines } = humanizeSteps(suggestion.steps);
+    reporter.describeAutomation(lines, aiCfg, live.language)
+      .then((label) => {
+        if (!label) return;
+        const found = pendingSuggestions.find((s) => s.id === id);
+        if (found) { found.label = label; broadcastMacroState(); }
+      })
+      .catch(() => {});
+  }
+}
+
+const patternDetector = new PatternDetector((candidate) => handleSuggestion('clicks', candidate));
+const textPatternDetector = new TextPatternDetector((candidate) => handleSuggestion('text', candidate));
 
 // ---------------- Pet window ----------------
 function petStartPosition() {
@@ -213,7 +268,7 @@ function createDiaryWindow() {
   });
   diaryWindow.setMenuBarVisibility(false);
   diaryWindow.loadFile(path.join(__dirname, '..', 'renderer', 'diary', 'diary.html'));
-  diaryWindow.on('closed', () => { diaryWindow = null; });
+  diaryWindow.on('closed', () => { diaryWindow = null; chatHistory = []; });
 }
 
 function iconImage(name) {
@@ -295,6 +350,9 @@ function buildTrayMenu() {
     { type: 'separator' },
     { label: tr(L, 'openDiary'), click: () => createDiaryWindow() },
     { type: 'separator' },
+    { label: recorder.isRecording() ? tr(L, 'recordStop') : tr(L, 'recordStart'), click: () => toggleRecording() },
+    { label: tr(L, 'replayLast'), click: () => replayLastMacro(), enabled: macroStore.listMacros().length > 0 },
+    { type: 'separator' },
     { label: tr(L, 'chooseCreature'), submenu: creatureSubmenu },
     { label: tr(L, 'size'), submenu: sizeSubmenu },
     { label: tr(L, 'resetPos'), click: () => resetPetPosition() },
@@ -371,6 +429,88 @@ function createTray() {
 }
 
 // ---------------- Monitors ----------------
+// Single funnel for every activity event — folder monitors AND the macro automation
+// module both feed through here, so diary logging / XP / pet reactions stay consistent.
+// `xpOverride` lets a caller (macro replay) scale the reward to actual seconds saved
+// instead of using the flat per-type default.
+function emitActivity(event, xpOverride) {
+  // "Sources → Recorded macros" toggle: recording/replay itself always works (it's a
+  // manual, explicitly-approved action either way) — this only controls whether it's
+  // logged to the diary and earns XP, mirroring how the other sources gate their feed.
+  if ((event.type === 'macro' || event.type === 'macroReplay') && config.load().sources.macro === false) return null;
+  diaryStore.add(event);
+  const live = config.load(); // read fresh: creature/speech can change without restart
+  const prog = progress.award(event.type, xpOverride); // gamification XP
+  const lifetimeStats = updateLifetimeCounters(event);
+  checkAchievements(lifetimeStats);
+  trackWellness(event);
+  const reactionLine = reporter.reaction(event, live.creature, live.language);
+  lastActivityLine = reactionLine; // feeds the LAN mobile-companion status snapshot
+  if (petWindow && !petWindow.isDestroyed()) {
+    if (live.speechEnabled) {
+      petWindow.webContents.send('activity', { ...event, line: reactionLine });
+      if (live.ttsEnabled) speakLine(reactionLine, live.creature, live.language);
+    }
+    if (prog.leveledUp) {
+      petWindow.webContents.send('levelup', prog);
+      const lvl = live.language === 'de' ? `Level ${prog.level}! Wir werden stärker!` : `Level ${prog.level}! We're getting stronger!`;
+      if (live.ttsEnabled) speakLine(lvl, live.creature, live.language, true);
+    }
+  }
+  if (prog.leveledUp) refreshTray();
+  if (diaryWindow && !diaryWindow.isDestroyed()) {
+    diaryWindow.webContents.send('events-updated');
+  }
+  return prog;
+}
+
+// Running lifetime counters (never rescans the whole diary) that feed the trophy case
+// and the streak's achievement tiers.
+function updateLifetimeCounters(event) {
+  const cfg = config.load();
+  const s = { ...cfg.lifetimeStats };
+  if (event.type === 'commit') {
+    s.commits = (s.commits || 0) + 1;
+    const hour = new Date(event.ts || Date.now()).getHours();
+    if (hour >= 23 || hour < 5) s.nightCommits = (s.nightCommits || 0) + 1;
+  } else if (event.type === 'files') {
+    s.files = (s.files || 0) + 1;
+  } else if (event.type === 'ai') {
+    s.aiSessions = (s.aiSessions || 0) + 1;
+  } else if (event.type === 'macro') {
+    s.macros = (s.macros || 0) + 1;
+  } else if (event.type === 'macroReplay') {
+    s.macroReplays = (s.macroReplays || 0) + 1;
+  } else if (event.type === 'focus') {
+    s.focusSessions = (s.focusSessions || 0) + 1;
+    s.focusMinutes = (s.focusMinutes || 0) + Math.round((event.durationMs || 0) / 60000);
+  }
+  config.save({ lifetimeStats: s });
+  return s;
+}
+
+function checkAchievements(lifetimeStats) {
+  const cfg = config.load();
+  const streak = streaks.computeStreak();
+  const statCheck = { ...lifetimeStats, bestStreak: streak.best, level: (cfg.progress && cfg.progress.level) || 1 };
+  const newly = checkNewAchievements(statCheck, cfg.achievements);
+  if (!newly.length) return newly;
+  config.save({ achievements: [...(cfg.achievements || []), ...newly] });
+  const live = config.load();
+  for (const id of newly) {
+    const a = ACHIEVEMENTS.find((x) => x.id === id);
+    if (!a) continue;
+    if (petWindow && !petWindow.isDestroyed()) {
+      const line = `🏆 ${a.emoji} ${achievementName(a, live.language)}!`;
+      petWindow.webContents.send('activity', { type: 'achievement', line, ts: Date.now() });
+      if (live.speechEnabled && live.ttsEnabled) speakLine(line, live.creature, live.language, true);
+    }
+  }
+  refreshTray();
+  if (diaryWindow && !diaryWindow.isDestroyed()) diaryWindow.webContents.send('events-updated');
+  return newly;
+}
+
 function startMonitors() {
   stopMonitors();
   const cfg = config.load();
@@ -378,40 +518,18 @@ function startMonitors() {
     try { return fs.existsSync(f); } catch { return false; }
   });
 
-  const onEvent = (event) => {
-    diaryStore.add(event);
-    const live = config.load(); // read fresh: creature/speech can change without restart
-    const prog = progress.award(event.type); // gamification XP
-    if (petWindow && !petWindow.isDestroyed()) {
-      if (live.speechEnabled) {
-        const line = reporter.reaction(event, live.creature, live.language);
-        petWindow.webContents.send('activity', { ...event, line });
-        if (live.ttsEnabled) speakLine(line, live.creature, live.language);
-      }
-      if (prog.leveledUp) {
-        petWindow.webContents.send('levelup', prog);
-        const lvl = live.language === 'de' ? `Level ${prog.level}! Wir werden stärker!` : `Level ${prog.level}! We're getting stronger!`;
-        if (live.ttsEnabled) speakLine(lvl, live.creature, live.language, true);
-      }
-    }
-    if (prog.leveledUp) refreshTray();
-    if (diaryWindow && !diaryWindow.isDestroyed()) {
-      diaryWindow.webContents.send('events-updated');
-    }
-  };
-
   if (cfg.sources.git && folders.length) {
-    const gm = new GitMonitor(folders, onEvent);
+    const gm = new GitMonitor(folders, emitActivity);
     gm.start();
     monitors.push(gm);
   }
   if (cfg.sources.files && folders.length) {
-    const fm = new FileMonitor(folders, onEvent);
+    const fm = new FileMonitor(folders, emitActivity);
     fm.start();
     monitors.push(fm);
   }
   if (cfg.sources.ai) {
-    const am = new AIMonitor(onEvent, { claudeDir: cfg.claudeProjectsPath });
+    const am = new AIMonitor(emitActivity, { claudeDir: cfg.claudeProjectsPath });
     am.start();
     monitors.push(am);
   }
@@ -420,6 +538,403 @@ function startMonitors() {
 function stopMonitors() {
   for (const m of monitors) { try { m.stop(); } catch {} }
   monitors = [];
+}
+
+// ---------------- Automation (macros) ----------------
+// Hard rule: nothing here ever runs on its own. Recording only ever starts/stops on an
+// explicit user action (hotkey, tray, or diary button). A finished recording becomes a
+// "pending" macro that must be reviewed (humanized step list) and explicitly approved
+// before it's saved — and even once saved, replay only ever fires from a direct ▶ click
+// or the replay-last hotkey. No auto-detection, no silent execution.
+function macroPendingPayload() {
+  if (!pendingMacro) return null;
+  const { lines, truncated } = humanizeSteps(pendingMacro.steps);
+  return { durationMs: pendingMacro.durationMs, stepsCount: pendingMacro.steps.length, preview: lines, truncated };
+}
+
+function suggestionsPayload() {
+  return pendingSuggestions.map((s) => {
+    const { lines, truncated } = humanizeSteps(s.steps);
+    return {
+      id: s.id, kind: s.kind, label: s.label,
+      durationMs: s.durationMs, windowTitle: s.windowTitle, appPath: s.appPath, textPreview: s.textPreview,
+      detectedAt: s.detectedAt, preview: lines, truncated,
+    };
+  });
+}
+
+function broadcastMacroState() {
+  const payload = {
+    recording: recorder.isRecording(),
+    patternDetection: patternDetector.isEnabled() || textPatternDetector.isEnabled(),
+    pending: macroPendingPayload(),
+    suggestions: suggestionsPayload(),
+  };
+  if (diaryWindow && !diaryWindow.isDestroyed()) diaryWindow.webContents.send('macro:state', payload);
+  if (petWindow && !petWindow.isDestroyed()) petWindow.webContents.send('macro-recording', payload.recording);
+}
+
+function applyPatternDetectionConfig() {
+  const on = config.load().patternDetection !== false;
+  if (on) { patternDetector.start(); textPatternDetector.start(); }
+  else { patternDetector.stop(); textPatternDetector.stop(); }
+  broadcastMacroState();
+}
+
+// Promotes a detected suggestion into the SAME review/approve slot a manual recording
+// uses — it still has to be named and explicitly approved, exactly like any other macro.
+function adoptSuggestion(id) {
+  const idx = pendingSuggestions.findIndex((s) => s.id === id);
+  if (idx === -1) return null;
+  const [s] = pendingSuggestions.splice(idx, 1);
+  pendingMacro = { steps: s.steps, durationMs: s.durationMs };
+  broadcastMacroState();
+  return macroPendingPayload();
+}
+
+function dismissSuggestion(id) {
+  pendingSuggestions = pendingSuggestions.filter((s) => s.id !== id);
+  broadcastMacroState();
+}
+
+function toggleRecording() {
+  if (recorder.isRecording()) {
+    pendingMacro = recorder.stop(); // null if nothing meaningful was recorded
+    broadcastMacroState();
+    if (pendingMacro) createDiaryWindow(); // bring the review panel to front
+  } else {
+    pendingMacro = null; // starting fresh discards any unreviewed previous recording
+    recorder.start();
+    broadcastMacroState();
+  }
+  refreshTray();
+}
+
+function approveMacro(name) {
+  if (!pendingMacro) return null;
+  const macro = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    name: name && name.trim() ? name.trim() : `Makro ${new Date().toLocaleString('de-DE')}`,
+    createdAt: Date.now(),
+    durationMs: pendingMacro.durationMs,
+    steps: pendingMacro.steps,
+    timesReplayed: 0,
+  };
+  macroStore.saveMacro(macro);
+  pendingMacro = null;
+  emitActivity({ type: 'macro', source: 'macro', name: macro.name, ts: Date.now() });
+  broadcastMacroState();
+  refreshTray();
+  return macro;
+}
+
+function discardPendingMacro() {
+  pendingMacro = null;
+  broadcastMacroState();
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Replay types blindly into whatever window currently has focus — a short countdown
+// gives the user a real chance to switch to the right window (or do nothing) before
+// any keystrokes/clicks actually fire. Shown as a direct bubble, not the queued
+// activity system, so each second's text replaces the last instantly.
+async function safetyCountdown(seconds) {
+  const live = config.load();
+  if (!petWindow || petWindow.isDestroyed() || live.speechEnabled === false) {
+    await sleep(seconds * 1000); // keep the safety window even if bubbles are off
+    return;
+  }
+  for (let i = seconds; i >= 1; i--) {
+    const line = live.language === 'de' ? `⏳ Richtiges Fenster? Start in ${i}…` : `⏳ Right window? Starting in ${i}…`;
+    petWindow.webContents.send('countdown-bubble', line);
+    await sleep(1000);
+  }
+}
+
+async function replayMacroById(id) {
+  const macro = macroStore.listMacros().find((m) => m.id === id);
+  if (!macro) return { ok: false, error: 'not-found' };
+  try {
+    await safetyCountdown(3);
+    await replayMacro(macro);
+    const stats = macroStore.recordReplay(id, macro.durationMs);
+    const seconds = Math.round(macro.durationMs / 1000);
+    const xp = Math.min(20, Math.max(2, Math.round(seconds / 3)));
+    emitActivity(
+      { type: 'macroReplay', source: 'macro', name: macro.name, durationMs: macro.durationMs, ts: Date.now() },
+      { xp, coins: Math.round(xp / 2) }
+    );
+    return { ok: true, stats };
+  } catch (err) {
+    console.error('macro replay failed', err.message);
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+}
+
+async function replayLastMacro() {
+  const macros = macroStore.listMacros();
+  if (!macros.length) return;
+  await replayMacroById(macros[0].id);
+}
+
+// ---------------- Wellness nudges ----------------
+// Purely a heads-up bubble tied to real work signals already flowing through
+// emitActivity — no extra capture, no diary log, no XP. A 15+ minute gap between
+// events counts as "you took a break" and resets the continuous-session clock.
+let continuousSince = null;
+let lastRealActivityTs = 0;
+let wellnessNudgedThisStretch = false;
+const WELLNESS_GAP_RESET_MS = 15 * 60000;
+
+function trackWellness(event) {
+  if (event.type !== 'commit' && event.type !== 'files' && event.type !== 'ai') return;
+  const now = event.ts || Date.now();
+  if (!continuousSince || now - lastRealActivityTs > WELLNESS_GAP_RESET_MS) {
+    continuousSince = now;
+    wellnessNudgedThisStretch = false;
+  }
+  lastRealActivityTs = now;
+
+  const cfg = config.load();
+  if (cfg.wellness && cfg.wellness.enabled === false) return;
+  const thresholdMs = ((cfg.wellness && cfg.wellness.nudgeAfterMinutes) || 90) * 60000;
+  if (wellnessNudgedThisStretch || now - continuousSince < thresholdMs) return;
+  wellnessNudgedThisStretch = true;
+  if (petWindow && !petWindow.isDestroyed() && cfg.speechEnabled) {
+    const line = cfg.language === 'de'
+      ? '💧 Schon lang dran! Kurz aufstehen, trinken, Augen entspannen?'
+      : "💧 You've been at it a while! Quick stretch, water, rest your eyes?";
+    petWindow.webContents.send('activity', { type: 'wellness', line, ts: now });
+  }
+}
+
+// ---------------- Focus sessions ----------------
+// A completed session (the full planned duration, timed by main.js itself so it fires
+// even if no window is open) earns XP/coins via the normal emitActivity path. Stopping
+// early gives nothing — same "finish what you start" incentive as a real Pomodoro timer.
+let focusSession = null; // { startedAt, plannedMinutes }
+let focusTimer = null;
+
+function focusStatePayload() {
+  if (!focusSession) return null;
+  const elapsedMs = Date.now() - focusSession.startedAt;
+  return {
+    startedAt: focusSession.startedAt,
+    plannedMinutes: focusSession.plannedMinutes,
+    remainingMs: Math.max(0, focusSession.plannedMinutes * 60000 - elapsedMs),
+  };
+}
+
+function broadcastFocusState() {
+  const payload = focusStatePayload();
+  if (diaryWindow && !diaryWindow.isDestroyed()) diaryWindow.webContents.send('focus:state', payload);
+  if (petWindow && !petWindow.isDestroyed()) petWindow.webContents.send('focus-state', payload);
+}
+
+function startFocusSession(minutes) {
+  const m = Number(minutes) > 0 ? Number(minutes) : (config.load().focus.defaultMinutes || 25);
+  if (focusTimer) clearTimeout(focusTimer);
+  focusSession = { startedAt: Date.now(), plannedMinutes: m };
+  focusTimer = setTimeout(completeFocusSession, m * 60000);
+  broadcastFocusState();
+  return focusStatePayload();
+}
+
+function completeFocusSession() {
+  if (!focusSession) return;
+  const durationMs = Date.now() - focusSession.startedAt;
+  focusSession = null;
+  focusTimer = null;
+  emitActivity({ type: 'focus', source: 'focus', durationMs, ts: Date.now() });
+  broadcastFocusState();
+}
+
+function stopFocusSessionEarly() {
+  if (!focusSession) return { durationMs: 0, completed: false };
+  const durationMs = Date.now() - focusSession.startedAt;
+  focusSession = null;
+  if (focusTimer) { clearTimeout(focusTimer); focusTimer = null; }
+  broadcastFocusState();
+  return { durationMs, completed: false };
+}
+
+// ---------------- Streak freeze shop ----------------
+const FREEZE_COST = 200;
+function buyStreakFreeze() {
+  const cfg = config.load();
+  const coins = cfg.coins || 0;
+  if (coins < FREEZE_COST) return { ok: false, reason: 'coins', coins, price: FREEZE_COST };
+  const streakFreezes = (cfg.streakFreezes || 0) + 1;
+  config.save({ coins: coins - FREEZE_COST, streakFreezes });
+  refreshTray();
+  if (diaryWindow && !diaryWindow.isDestroyed()) diaryWindow.webContents.send('events-updated');
+  return { ok: true, coins: coins - FREEZE_COST, streakFreezes };
+}
+
+// ---------------- Weekly recap card (shareable PNG) ----------------
+let currentRecapData = null;
+
+async function generateRecapCard(period) {
+  const isDay = period === 'day';
+  const cfg = config.load();
+  const events = isDay ? diaryStore.getDay().events : weekEvents();
+  const s = reporter.buildStats(events);
+  const p = reporter.persona(cfg.creature);
+  const now = new Date();
+  const fmtDay = (d) => `${d.getDate()}.${d.getMonth() + 1}.`;
+  const quote = (s.commits[0] && s.commits[0].message) || (s.aiPrompts && s.aiPrompts[0]) || '';
+  let range;
+  if (isDay) {
+    range = fmtDay(now);
+  } else {
+    const start = new Date(now); start.setDate(now.getDate() - 6);
+    range = `${fmtDay(start)} – ${fmtDay(now)}`;
+  }
+
+  currentRecapData = {
+    lang: cfg.language,
+    period: isDay ? 'day' : 'week',
+    emoji: p.emoji,
+    name: p.name,
+    range,
+    commits: s.commits.length,
+    files: s.filesTouched.size,
+    aiSessions: s.aiSessions,
+    macrosCreated: s.macrosCreated || 0,
+    macroTimeSavedSec: Math.round((s.macroTimeSavedMs || 0) / 1000),
+    level: (cfg.progress && cfg.progress.level) || 1,
+    streak: streaks.computeStreak().current,
+    quote,
+  };
+
+  // Windows clamps a BrowserWindow's CREATE-time size to the display's work area (our
+  // 1350px-tall card is taller than most screens' usable height) — creating it small
+  // and then resizing via setContentSize bypasses that clamp so capturePage() actually
+  // gets the full 1080x1350 card instead of a cropped one.
+  const win = new BrowserWindow({
+    width: 800,
+    height: 600,
+    show: false,
+    frame: false,
+    useContentSize: true,
+    webPreferences: {
+      preload: path.join(__dirname, '..', 'preload', 'recapPreload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+  try {
+    win.setContentSize(1080, 1350, false);
+    await win.loadFile(path.join(__dirname, '..', 'renderer', 'recap', 'recap.html'));
+    await new Promise((resolve) => setTimeout(resolve, 400)); // let fonts/layout settle before capture
+    const image = await win.webContents.capturePage();
+    const dir = path.join(app.getPath('userData'), 'exports');
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `devpet-recap-${isDay ? 'day' : 'week'}-${diaryStore.dayKey()}.png`);
+    fs.writeFileSync(file, image.toPNG());
+    clipboard.writeImage(image); // so it's a one-click paste into whatever you're sharing to
+    // Open the folder robustly. showItemInFolder() can make Explorer pop a "path not
+    // available" dialog for a just-created folder; openPath() returns a catchable error
+    // instead, so a shell hiccup never throws a scary dialog at the user.
+    const openErr = await shell.openPath(dir);
+    if (openErr) console.error('open exports folder failed:', openErr);
+    return { ok: true, file };
+  } catch (e) {
+    console.error('recap card generation failed', e.message);
+    return { ok: false, error: e.message };
+  } finally {
+    win.destroy();
+  }
+}
+
+// ---------------- LAN mobile companion (read-only, same-WiFi only) ----------------
+function ensureLanToken() {
+  const cfg = config.load();
+  if (cfg.lanWidget && cfg.lanWidget.token) return cfg.lanWidget.token;
+  const token = crypto.randomBytes(9).toString('base64url');
+  config.save({ lanWidget: { enabled: cfg.lanWidget ? cfg.lanWidget.enabled !== false : true, token } });
+  return token;
+}
+
+function lanStatusSnapshot() {
+  const cfg = config.load();
+  const p = reporter.persona(cfg.creature);
+  const prog = progress.state();
+  const streak = streaks.computeStreak();
+  const focus = focusStatePayload();
+  return {
+    emoji: p.emoji,
+    name: p.name,
+    level: prog.level,
+    xpPct: prog.pct,
+    coins: prog.coins,
+    streak: streak.current,
+    focusRemainingMs: focus ? focus.remainingMs : null,
+    lastLine: lastActivityLine,
+    ts: Date.now(),
+  };
+}
+
+const lanServer = new LanServer(ensureLanToken, lanStatusSnapshot);
+
+function applyLanWidgetConfig() {
+  ensureLanToken();
+  const cfg = config.load();
+  if (cfg.lanWidget && cfg.lanWidget.enabled === false) lanServer.stop();
+  else lanServer.start();
+}
+
+// ---------------- Cloud relay (opt-in — the only path that ever leaves this machine) ----------------
+function ensureCloudTokens() {
+  const cfg = config.load();
+  const cr = cfg.cloudRelay || {};
+  if (cr.pushToken && cr.viewToken) return;
+  config.save({
+    cloudRelay: {
+      ...cr,
+      pushToken: cr.pushToken || crypto.randomBytes(9).toString('base64url'),
+      viewToken: cr.viewToken || crypto.randomBytes(9).toString('base64url'),
+    },
+  });
+}
+
+function pushCloudStatus() {
+  const cfg = config.load();
+  const cr = cfg.cloudRelay;
+  if (!cr || !cr.enabled || !cr.workerUrl || !cr.pushToken) return;
+  let target;
+  try {
+    target = new URL(`${cr.workerUrl.replace(/\/$/, '')}/push?t=${encodeURIComponent(cr.pushToken)}`);
+  } catch {
+    return;
+  }
+  const body = JSON.stringify(lanStatusSnapshot());
+  const req = https.request(
+    {
+      hostname: target.hostname,
+      path: target.pathname + target.search,
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) },
+      timeout: 8000,
+    },
+    (res) => res.resume() // drain — we don't need the response body
+  );
+  req.on('error', (e) => console.error('cloud push failed', e.message));
+  req.on('timeout', () => req.destroy());
+  req.write(body);
+  req.end();
+}
+
+let cloudPushTimer = null;
+function applyCloudRelayConfig() {
+  ensureCloudTokens();
+  if (cloudPushTimer) { clearInterval(cloudPushTimer); cloudPushTimer = null; }
+  const cfg = config.load();
+  if (cfg.cloudRelay && cfg.cloudRelay.enabled && cfg.cloudRelay.workerUrl) {
+    pushCloudStatus();
+    cloudPushTimer = setInterval(pushCloudStatus, 120000);
+  }
 }
 
 // ---------------- Actions ----------------
@@ -493,6 +1008,9 @@ function registerIpc() {
   ipcMain.handle('config:set', (_e, patch) => {
     const cfg = config.save(patch || {});
     startMonitors();
+    applyPatternDetectionConfig();
+    applyLanWidgetConfig();
+    applyCloudRelayConfig();
     if (petWindow && !petWindow.isDestroyed()) petWindow.webContents.send('creature', cfg.creature);
     refreshTray();
     return cfg;
@@ -524,6 +1042,26 @@ function registerIpc() {
     };
     return { happy: read('happy.wav'), alert: read('alert.wav'), enabled: cfg.soundEnabled !== false };
   });
+
+  // automation (macros) — see the comment above the functions for the review/approve rule
+  ipcMain.handle('macro:toggleRecording', () => { toggleRecording(); return { recording: recorder.isRecording() }; });
+  ipcMain.handle('macro:getState', () => ({ recording: recorder.isRecording(), pending: macroPendingPayload() }));
+  ipcMain.handle('macro:approve', (_e, name) => approveMacro(name));
+  ipcMain.handle('macro:discard', () => { discardPendingMacro(); return true; });
+  ipcMain.handle('macro:list', () => macroStore.listMacros());
+  ipcMain.handle('macro:replay', (_e, id) => replayMacroById(id));
+  ipcMain.handle('macro:delete', (_e, id) => {
+    macroStore.deleteMacro(id);
+    if (diaryWindow && !diaryWindow.isDestroyed()) diaryWindow.webContents.send('events-updated');
+  });
+  ipcMain.handle('macro:rename', (_e, id, name) => {
+    const macro = macroStore.renameMacro(id, name);
+    if (diaryWindow && !diaryWindow.isDestroyed()) diaryWindow.webContents.send('events-updated');
+    return macro;
+  });
+  ipcMain.handle('macro:getStats', () => macroStore.getMacroStats());
+  ipcMain.handle('macro:adoptSuggestion', (_e, id) => adoptSuggestion(id));
+  ipcMain.handle('macro:dismissSuggestion', (_e, id) => { dismissSuggestion(id); return true; });
 
   // folders
   ipcMain.handle('folders:add', () => addFolderDialog());
@@ -601,6 +1139,84 @@ function registerIpc() {
     } catch (e) { console.error('openUserData fallback failed', e.message); }
     return ud;
   });
+
+  // focus sessions
+  ipcMain.handle('focus:start', (_e, minutes) => startFocusSession(minutes));
+  ipcMain.handle('focus:stop', () => stopFocusSessionEarly());
+  ipcMain.handle('focus:getState', () => focusStatePayload());
+
+  // streaks, lifetime stats, achievements
+  ipcMain.handle('progress:getStreak', () => streaks.computeStreak());
+  ipcMain.handle('progress:getLifetimeStats', () => config.load().lifetimeStats);
+  ipcMain.handle('progress:getAchievements', () => {
+    const cfg = config.load();
+    const streak = streaks.computeStreak();
+    return {
+      unlocked: cfg.achievements || [],
+      // strip the `check` function — IPC's structured clone can't serialize functions
+      all: ACHIEVEMENTS.map((a) => ({ id: a.id, emoji: a.emoji, name: a.name, desc: a.desc, metric: a.metric, target: a.target })),
+      stats: { ...cfg.lifetimeStats, bestStreak: streak.best, level: (cfg.progress && cfg.progress.level) || 1 },
+    };
+  });
+  ipcMain.handle('progress:buyFreeze', () => buyStreakFreeze());
+
+  // ask your pet (reuses whatever diary AI key is already configured; remembers the
+  // last few exchanges for this diary-window session so follow-up questions work)
+  ipcMain.handle('diary:ask', async (_e, question) => {
+    const cfg = config.load();
+    const aiCfg = resolveAi(cfg);
+    if (!aiCfg) return { ok: false, reason: 'no-key' };
+    try {
+      const answer = await reporter.askPet(question, weekEvents(), aiCfg, cfg.language, chatHistory);
+      if (!answer) return { ok: false, reason: 'empty' };
+      chatHistory.push({ role: 'user', text: question }, { role: 'pet', text: answer });
+      if (chatHistory.length > 12) chatHistory = chatHistory.slice(-12);
+      return { ok: true, answer };
+    } catch (e) {
+      return { ok: false, reason: String((e && e.message) || e) };
+    }
+  });
+
+  // shareable weekly recap card (PNG)
+  ipcMain.handle('recap:generate', (_e, period) => generateRecapCard(period));
+  ipcMain.handle('recap:getData', () => currentRecapData);
+
+  // LAN mobile companion
+  ipcMain.handle('lan:getInfo', () => ({
+    enabled: lanServer.isRunning(),
+    port: LAN_PORT,
+    token: ensureLanToken(),
+    ips: localIPs(),
+  }));
+  ipcMain.handle('lan:regenerateToken', () => {
+    const token = crypto.randomBytes(9).toString('base64url');
+    const cfg = config.load();
+    config.save({ lanWidget: { enabled: cfg.lanWidget ? cfg.lanWidget.enabled !== false : true, token } });
+    return token;
+  });
+
+  // cloud relay (opt-in)
+  ipcMain.handle('cloud:getInfo', () => {
+    ensureCloudTokens();
+    return config.load().cloudRelay;
+  });
+  ipcMain.handle('cloud:setConfig', (_e, patch) => {
+    config.save({ cloudRelay: { ...(config.load().cloudRelay || {}), ...patch } });
+    applyCloudRelayConfig();
+    return config.load().cloudRelay;
+  });
+  ipcMain.handle('cloud:regenerateTokens', () => {
+    config.save({
+      cloudRelay: {
+        ...(config.load().cloudRelay || {}),
+        pushToken: crypto.randomBytes(9).toString('base64url'),
+        viewToken: crypto.randomBytes(9).toString('base64url'),
+      },
+    });
+    applyCloudRelayConfig();
+    return config.load().cloudRelay;
+  });
+  ipcMain.handle('cloud:pushNow', () => { pushCloudStatus(); return true; });
 }
 
 // Demo events so the prototype shows something on first run.
@@ -723,6 +1339,11 @@ async function catchUpReports() {
   } catch (e) { console.error('catch-up report failed:', e.message); }
 }
 
+function registerShortcuts() {
+  globalShortcut.register('CommandOrControl+Alt+R', toggleRecording);
+  globalShortcut.register('CommandOrControl+Alt+P', replayLastMacro);
+}
+
 // ---------------- Lifecycle ----------------
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -732,10 +1353,14 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     registerIpc();
+    registerShortcuts();
     applyAutostart(config.load().autostart);
     createPetWindow();
     createTray();
     startMonitors();
+    applyPatternDetectionConfig();
+    applyLanWidgetConfig();
+    applyCloudRelayConfig();
     startCursorBroadcast();
     // First run: if there are no events at all yet, seed a small demo day.
     if (diaryStore.listDates().length === 0) seedDemoEvents();
@@ -744,5 +1369,15 @@ if (!gotLock) {
   });
 
   app.on('window-all-closed', () => { /* stay alive in tray */ });
-  app.on('before-quit', () => { app.isQuitting = true; stopMonitors(); });
+  app.on('before-quit', () => {
+    app.isQuitting = true;
+    stopMonitors();
+    globalShortcut.unregisterAll();
+    if (recorder.isRecording()) recorder.stop(); // don't leave the global input hook attached
+    patternDetector.stop();
+    textPatternDetector.stop();
+    if (focusTimer) clearTimeout(focusTimer);
+    lanServer.stop();
+    if (cloudPushTimer) clearInterval(cloudPushTimer);
+  });
 }

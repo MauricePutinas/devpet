@@ -21,6 +21,45 @@ const T = {
     folders: '📂 Project folders', addFolder: '+ Folder',
     hintFolders: 'Your pet watches these folders for git commits & file changes.',
     sources: '🔎 Sources', srcGit: 'Git commits & changes', srcFiles: 'File changes in the project folder', srcAi: 'AI coding sessions (Claude · Codex · Hermes)',
+    srcMacro: 'Recorded macros (automation)',
+    macrosTitle: '🤖 Automation', recordStart: '⏺ Start recording', recordStop: '⏹ Stop recording',
+    macroHint: 'Records keyboard & mouse clicks while active. Every recording must be reviewed and approved here before it\'s saved — nothing ever replays on its own.',
+    macroPendingHead: '🔍 New recording — review before approving:', macroNamePlaceholder: 'Name this automation…',
+    macroApprove: '✅ Approve & save', macroDiscard: 'Discard', macroPlayTitle: 'Replay',
+    macroEmpty: 'No automations yet — start a recording above.',
+    macroUsed: (n) => `used ${n}×`, macroMoreSteps: 'more steps follow…',
+    macroSavedTotal: (s) => `${s} saved total`,
+    macroDurationSec: (s) => `${s}s`,
+    patDetCheck: '🔍 Background pattern detection — clicks, hotkeys & typed text (suggests only — never auto-saves)',
+    patDetHint: 'Watches for the same short action or phrase repeated 3× in a row — even across apps (e.g. copy in Excel → paste in Outlook). Skips anything typed in password/login/banking windows. Only ever shows up as a suggestion below — still needs your review and approval.',
+    suggAdopt: '✅ Review', suggDismiss: 'Dismiss',
+    suggDetected: (app) => `Noticed in ${app}`,
+    streakTitle: '🔥 Streak', streakBest: (n) => `Best: ${n} days`, streakFreezes: (n) => `🧊 ${n} freeze${n === 1 ? '' : 's'}`,
+    buyFreeze: '🧊 Buy freeze (200 🪙)', buyFreezeNoCoins: 'Not enough coins',
+    focusTitle: '🎯 Focus session', focusStart: '▶ Start', focusStop: 'Stop (no reward)',
+    focusHint: 'Only a fully completed session earns XP — stopping early gives nothing, on purpose.',
+    trophyTitle: '🏆 Trophy case',
+    askTitle: '💬 Ask your pet', askPlaceholder: 'How productive was I this week?', askSend: 'Ask',
+    askHint: 'Uses the same AI key configured below — answers are based only on your real activity.',
+    askNoKey: 'Set an AI key below first — I need it to answer freely.',
+    askThinking: 'Thinking…', askError: "Couldn't answer that right now.",
+    recapBtn: '🖼️ Create recap card', recapDone: 'Recap card saved, opened & copied to clipboard!', recapFail: 'Recap card failed.',
+    recapWeek: 'Week', recapDay: 'Day',
+    wellnessTitle: '💧 Wellness nudges', wellnessCheck: 'Remind me to take a break', wellnessAfter: 'Nudge after (minutes of continuous activity)',
+    macroRename: 'Rename', focusCustom: 'Custom…', focusCustomPlaceholder: 'minutes',
+    trophyProgress: (v, t) => `${v} / ${t}`,
+    lanTitle: '📱 Mobile companion (local network)', lanEnabledCheck: 'Enabled',
+    lanHint: "Open this on your phone while it's on the SAME WiFi as this PC to see level, streak, coins & focus countdown — read-only, nothing from your diary or macros ever leaves this network.",
+    lanRegen: '🔄 New link (invalidates the old one)', lanCopy: 'Copy', lanCopied: 'Copied!',
+    lanNone: 'No local network address found.',
+    cloudTitle: '☁️ Cloud companion (from anywhere)',
+    cloudHint: 'Opt-in only. Pushes the same tiny status (level, streak, coins, focus) to a Worker YOU deploy — the only thing in DevPet that ever leaves your PC. Setup file: cloudflare/devpet-status-worker.js in the project folder.',
+    cloudWorkerUrlLabel: 'Worker URL (after you deploy it)',
+    cloudPushTokenLabel: 'PUSH_TOKEN secret (paste into Cloudflare)', cloudViewTokenLabel: 'VIEW_TOKEN secret (paste into Cloudflare)',
+    cloudShareUrlLabel: 'Your phone-anywhere link',
+    cloudTest: '📡 Send test push now', cloudRegen: '🔄 New tokens',
+    cloudTestOk: '✅ Pushed! Try the link.', cloudTestFail: 'Not configured yet — set the Worker URL first.',
+    cloudNoUrl: 'Set a Worker URL first.',
     aiReport: '✨ AI report (optional)', aiCheck: 'Let an AI write the diary', apiKeyLabel: 'API key', modelLabel: 'Model',
     aiHint: 'Without a key your pet writes the report locally (offline). The key stays on your machine only.',
     demo: 'Load demo data', openData: 'Open data folder',
@@ -60,6 +99,45 @@ const T = {
     folders: '📂 Projektordner', addFolder: '+ Ordner',
     hintFolders: 'Diese Ordner beobachtet dein Pet auf Git-Commits & Dateiänderungen.',
     sources: '🔎 Quellen', srcGit: 'Git-Commits & Änderungen', srcFiles: 'Dateiänderungen im Projektordner', srcAi: 'KI-Coding-Sessions (Claude · Codex · Hermes)',
+    srcMacro: 'Aufgezeichnete Makros (Automatisierung)',
+    macrosTitle: '🤖 Automatisierung', recordStart: '⏺ Aufnahme starten', recordStop: '⏹ Aufnahme stoppen',
+    macroHint: 'Zeichnet Tastatur & Mausklicks auf, solange aktiv. Jede Aufnahme muss hier geprüft und freigegeben werden, bevor sie gespeichert wird — nichts spielt von selbst ab.',
+    macroPendingHead: '🔍 Neue Aufnahme — vor Freigabe prüfen:', macroNamePlaceholder: 'Automatisierung benennen…',
+    macroApprove: '✅ Freigeben & speichern', macroDiscard: 'Verwerfen', macroPlayTitle: 'Abspielen',
+    macroEmpty: 'Noch keine Automatisierungen — starte oben eine Aufnahme.',
+    macroUsed: (n) => `${n}× genutzt`, macroMoreSteps: 'weitere Schritte folgen…',
+    macroSavedTotal: (s) => `${s} insgesamt gespart`,
+    macroDurationSec: (s) => `${s}s`,
+    patDetCheck: '🔍 Muster-Erkennung im Hintergrund — Klicks, Hotkeys & getippter Text (nur Vorschläge — speichert nie automatisch)',
+    patDetHint: 'Achtet auf dieselbe kurze Aktion oder Textphrase, 3× hintereinander — auch app-übergreifend (z. B. Kopieren in Excel → Einfügen in Outlook). Lässt Passwort-/Login-/Banking-Fenster komplett aus. Landet nur als Vorschlag unten — braucht trotzdem deine Prüfung und Freigabe.',
+    suggAdopt: '✅ Prüfen', suggDismiss: 'Verwerfen',
+    suggDetected: (app) => `Bemerkt in ${app}`,
+    streakTitle: '🔥 Streak', streakBest: (n) => `Beste: ${n} Tage`, streakFreezes: (n) => `🧊 ${n} Freeze${n === 1 ? '' : 's'}`,
+    buyFreeze: '🧊 Freeze kaufen (200 🪙)', buyFreezeNoCoins: 'Nicht genug Münzen',
+    focusTitle: '🎯 Fokus-Session', focusStart: '▶ Starten', focusStop: 'Stoppen (keine Belohnung)',
+    focusHint: 'Nur eine komplett durchgehaltene Session gibt XP — vorzeitiges Stoppen bringt absichtlich nichts.',
+    trophyTitle: '🏆 Trophäen-Regal',
+    askTitle: '💬 Frag dein Pet', askPlaceholder: 'Wie produktiv war ich diese Woche?', askSend: 'Fragen',
+    askHint: 'Nutzt denselben KI-Key wie unten konfiguriert — Antworten basieren nur auf deiner echten Aktivität.',
+    askNoKey: 'Trag unten erst einen KI-Key ein — den brauche ich zum freien Antworten.',
+    askThinking: 'Denke nach…', askError: 'Konnte das gerade nicht beantworten.',
+    recapBtn: '🖼️ Recap-Karte erstellen', recapDone: 'Karte gespeichert, geöffnet & in Zwischenablage kopiert!', recapFail: 'Karte fehlgeschlagen.',
+    recapWeek: 'Woche', recapDay: 'Tag',
+    wellnessTitle: '💧 Wellness-Erinnerungen', wellnessCheck: 'An Pause erinnern', wellnessAfter: 'Erinnern nach (Minuten durchgehender Aktivität)',
+    macroRename: 'Umbenennen', focusCustom: 'Eigene…', focusCustomPlaceholder: 'Minuten',
+    trophyProgress: (v, t) => `${v} / ${t}`,
+    lanTitle: '📱 Mobile-Begleiter (lokales Netzwerk)', lanEnabledCheck: 'Aktiviert',
+    lanHint: 'Öffne das auf deinem Handy, solange es im GLEICHEN WLAN wie dieser PC ist — zeigt Level, Streak, Coins & Fokus-Countdown. Nur lesend, nichts aus Tagebuch oder Makros verlässt je dieses Netzwerk.',
+    lanRegen: '🔄 Neuer Link (macht den alten ungültig)', lanCopy: 'Kopieren', lanCopied: 'Kopiert!',
+    lanNone: 'Keine lokale Netzwerkadresse gefunden.',
+    cloudTitle: '☁️ Cloud-Begleiter (von überall)',
+    cloudHint: 'Nur auf Wunsch. Schickt denselben winzigen Status (Level, Streak, Coins, Fokus) an einen Worker, den DU deployst — das Einzige in DevPet, das je deinen PC verlässt. Setup-Datei: cloudflare/devpet-status-worker.js im Projektordner.',
+    cloudWorkerUrlLabel: 'Worker-URL (nach dem Deploy)',
+    cloudPushTokenLabel: 'PUSH_TOKEN Secret (bei Cloudflare einfügen)', cloudViewTokenLabel: 'VIEW_TOKEN Secret (bei Cloudflare einfügen)',
+    cloudShareUrlLabel: 'Dein Von-überall-Link fürs Handy',
+    cloudTest: '📡 Test-Push jetzt senden', cloudRegen: '🔄 Neue Tokens',
+    cloudTestOk: '✅ Gesendet! Probier den Link.', cloudTestFail: 'Noch nicht eingerichtet — erst Worker-URL setzen.',
+    cloudNoUrl: 'Erst eine Worker-URL setzen.',
     aiReport: '✨ KI-Bericht (optional)', aiCheck: 'Tagebuch von einer KI schreiben lassen', apiKeyLabel: 'API-Key', modelLabel: 'Modell',
     aiHint: 'Ohne Key schreibt dein Pet den Bericht lokal (offline). Der Key bleibt nur auf deinem Rechner.',
     demo: 'Demo-Daten laden', openData: 'Datenordner öffnen',
@@ -94,6 +172,7 @@ function applyStatic() {
   document.title = D.title;
   document.querySelectorAll('[data-i18n]').forEach((e) => { const v = D[e.dataset.i18n]; if (typeof v === 'string') e.textContent = v; });
   document.querySelectorAll('[data-i18n-title]').forEach((e) => { const v = D[e.dataset.i18nTitle]; if (typeof v === 'string') e.title = v; });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((e) => { const v = D[e.dataset.i18nPlaceholder]; if (typeof v === 'string') e.placeholder = v; });
 }
 
 function setHero(id) {
@@ -217,6 +296,10 @@ async function loadConfig() {
   el('srcGit').checked = !!cfg.sources.git;
   el('srcFiles').checked = !!cfg.sources.files;
   el('srcAi').checked = !!cfg.sources.ai;
+  el('srcMacro').checked = cfg.sources.macro !== false;
+  el('patternDetect').checked = cfg.patternDetection !== false;
+  el('wellnessEnabled').checked = !cfg.wellness || cfg.wellness.enabled !== false;
+  el('wellnessMinutes').value = String((cfg.wellness && cfg.wellness.nudgeAfterMinutes) || 90);
   el('aiEnabled').checked = !!cfg.ai.enabled;
   el('apiKey').value = cfg.ai.apiKey || '';
   el('aiModel').value = cfg.ai.model || 'claude-sonnet-4-6';
@@ -640,9 +723,9 @@ el('addFolder').addEventListener('click', async () => {
 function bindSources() {
   const apply = () =>
     diaryAPI.setConfig({
-      sources: { git: el('srcGit').checked, files: el('srcFiles').checked, ai: el('srcAi').checked },
+      sources: { git: el('srcGit').checked, files: el('srcFiles').checked, ai: el('srcAi').checked, macro: el('srcMacro').checked },
     });
-  ['srcGit', 'srcFiles', 'srcAi'].forEach((id) => el(id).addEventListener('change', apply));
+  ['srcGit', 'srcFiles', 'srcAi', 'srcMacro'].forEach((id) => el(id).addEventListener('change', apply));
 }
 function bindAi() {
   const apply = () =>
@@ -660,6 +743,13 @@ function bindSize() {
     await diaryAPI.setScale(pct / 100);
   });
 }
+function bindWellness() {
+  const apply = () => diaryAPI.setConfig({
+    wellness: { enabled: el('wellnessEnabled').checked, nudgeAfterMinutes: Number(el('wellnessMinutes').value) },
+  });
+  el('wellnessEnabled').addEventListener('change', apply);
+  el('wellnessMinutes').addEventListener('change', apply);
+}
 
 el('demoBtn').addEventListener('click', async () => {
   await diaryAPI.seedDemo();
@@ -669,8 +759,8 @@ el('demoBtn').addEventListener('click', async () => {
 });
 el('dataBtn').addEventListener('click', () => diaryAPI.openUserData());
 
-diaryAPI.onUpdate(async () => { await loadConfig(); await refreshDates(); loadDay(); renderProgress(); });
-if (diaryAPI.onLang) diaryAPI.onLang(async (l) => { lang = l || 'en'; applyStatic(); await refreshDates(); loadDay(); });
+diaryAPI.onUpdate(async () => { await loadConfig(); await refreshDates(); loadDay(); renderProgress(); renderMacroList(); renderMacroStats(); renderStreak(); renderTrophies(); });
+if (diaryAPI.onLang) diaryAPI.onLang(async (l) => { lang = l || 'en'; applyStatic(); await refreshDates(); loadDay(); refreshMacroState(); renderTrophies(); });
 diaryAPI.onScale((s) => {
   const pct = Math.round(s * 100);
   el('sizeSlider').value = pct;
@@ -688,10 +778,356 @@ async function refreshLive() {
     renderPills();
     await renderShop();
     await renderProgress();
+    await refreshMacroState();
+    await renderMacroList();
+    await renderMacroStats();
+    await renderStreak();
+    await renderTrophies();
   } catch {} finally { refreshLive._busy = false; }
 }
 window.addEventListener('focus', refreshLive);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshLive(); });
+
+/* ---------- automation / macros ----------
+   Recording/replay only ever runs on an explicit click here (or the global hotkeys /
+   tray, which route through the same main-process functions) — nothing auto-fires. */
+function renderMacroState(state) {
+  const btn = el('macroRecordBtn');
+  const recording = !!(state && state.recording);
+  btn.textContent = recording ? tt('recordStop') : tt('recordStart');
+  btn.classList.toggle('is-recording', recording);
+
+  const patCb = el('patternDetect');
+  if (state && typeof state.patternDetection === 'boolean' && document.activeElement !== patCb) {
+    patCb.checked = state.patternDetection;
+  }
+
+  const pendingBox = el('macroPending');
+  const pending = state && state.pending;
+  if (pending) {
+    pendingBox.classList.remove('hidden');
+    el('macroPreview').innerHTML = pending.preview.map((l) => `<div>${esc(l)}</div>`).join('')
+      + (pending.truncated ? `<div class="more">… ${tt('macroMoreSteps')}</div>` : '');
+  } else {
+    pendingBox.classList.add('hidden');
+  }
+
+  renderSuggestions((state && state.suggestions) || []);
+}
+
+function renderSuggestions(suggestions) {
+  const ul = el('macroSuggestions');
+  ul.innerHTML = '';
+  for (const s of suggestions) {
+    const li = document.createElement('li');
+    li.className = 'macro-row sugg-row';
+    const appLabel = (s.appPath && s.appPath.length > 1) ? s.appPath.join(' → ') : (s.windowTitle || '?');
+    const kindIcon = s.kind === 'text' ? '✍️' : '🖱️';
+    const headline = s.label
+      ? `<div class="sugg-headline"><span class="spark">✨</span> ${esc(s.label)}</div>`
+      : '';
+    const textPreview = s.textPreview
+      ? `<div class="sugg-text">${tt('quote')(esc(s.textPreview))}</div>`
+      : '';
+    li.innerHTML = `
+      <div class="sugg-head">
+        <span class="sugg-app">${kindIcon} ${esc(appLabel)}</span>
+        <span class="sugg-meta">${tt('macroDurationSec')((s.durationMs / 1000).toFixed(1))} · ${relTime(s.detectedAt)}</span>
+      </div>
+      ${headline}
+      ${textPreview}
+      <div class="sugg-preview">${s.preview.map((l) => `<div>${esc(l)}</div>`).join('')}${s.truncated ? `<div>… ${tt('macroMoreSteps')}</div>` : ''}</div>
+      <div class="sugg-actions">
+        <button class="sugg-adopt">${tt('suggAdopt')}</button>
+        <button class="sugg-dismiss">${tt('suggDismiss')}</button>
+      </div>`;
+    li.querySelector('.sugg-adopt').addEventListener('click', async () => { await diaryAPI.adoptSuggestion(s.id); });
+    li.querySelector('.sugg-dismiss').addEventListener('click', async () => { await diaryAPI.dismissSuggestion(s.id); });
+    ul.appendChild(li);
+  }
+}
+
+async function refreshMacroState() {
+  try { renderMacroState(await diaryAPI.getMacroState()); } catch {}
+}
+
+async function renderMacroStats() {
+  const badge = el('macroSavedBadge');
+  try {
+    const stats = await diaryAPI.getMacroStats();
+    if (stats && stats.totalReplays) {
+      badge.textContent = tt('macroSavedTotal')(tt('macroDurationSec')(Math.round(stats.totalTimeSavedMs / 1000)));
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+  } catch { badge.classList.add('hidden'); }
+}
+
+async function renderMacroList() {
+  const ul = el('macroList');
+  let macros = [];
+  try { macros = await diaryAPI.listMacros(); } catch {}
+  if (!macros.length) { ul.innerHTML = `<li class="empty">${tt('macroEmpty')}</li>`; return; }
+  ul.innerHTML = '';
+  for (const m of macros) {
+    const li = document.createElement('li');
+    li.className = 'macro-row';
+    li.innerHTML = `
+      <div class="macro-info">
+        <div class="macro-name" data-name="${esc(m.name)}">${esc(m.name)}</div>
+        <div class="macro-meta">${tt('macroDurationSec')((m.durationMs / 1000).toFixed(1))} · ${tt('macroUsed')(m.timesReplayed || 0)}</div>
+      </div>
+      <button class="macro-rename" title="${tt('macroRename')}">✏️</button>
+      <button class="macro-play" title="${tt('macroPlayTitle')}">▶</button>
+      <button class="macro-del" title="${tt('remove')}">✕</button>`;
+    li.querySelector('.macro-play').addEventListener('click', async (e) => {
+      const b = e.currentTarget;
+      b.disabled = true;
+      try { await diaryAPI.replayMacro(m.id); } finally { b.disabled = false; }
+    });
+    li.querySelector('.macro-del').addEventListener('click', () => diaryAPI.deleteMacro(m.id));
+    li.querySelector('.macro-rename').addEventListener('click', () => {
+      const nameEl = li.querySelector('.macro-name');
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.value = m.name;
+      input.maxLength = 48;
+      input.className = 'macro-rename-input';
+      nameEl.replaceWith(input);
+      input.focus();
+      input.select();
+      const commit = async () => {
+        const val = input.value.trim();
+        if (val && val !== m.name) await diaryAPI.renameMacro(m.id, val);
+        else renderMacroList();
+      };
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') renderMacroList(); });
+      input.addEventListener('blur', commit);
+    });
+    ul.appendChild(li);
+  }
+}
+
+el('macroRecordBtn').addEventListener('click', () => diaryAPI.toggleMacroRecording());
+el('macroApproveBtn').addEventListener('click', async () => {
+  await diaryAPI.approveMacro(el('macroName').value);
+  el('macroName').value = '';
+});
+el('macroDiscardBtn').addEventListener('click', () => diaryAPI.discardMacro());
+el('patternDetect').addEventListener('change', (e) => diaryAPI.setConfig({ patternDetection: e.target.checked }));
+
+if (diaryAPI.onMacroState) {
+  diaryAPI.onMacroState((s) => { renderMacroState(s); renderMacroList(); renderMacroStats(); });
+}
+
+/* ---------- streak ---------- */
+async function renderStreak() {
+  let s = { current: 0, best: 0, freezes: 0 };
+  try { s = await diaryAPI.getStreak(); } catch {}
+  el('streakNum').textContent = s.current;
+  el('streakCurrent').textContent = s.current;
+  el('streakBest').textContent = tt('streakBest')(s.best);
+  el('streakFreezeCount').textContent = tt('streakFreezes')(s.freezes);
+}
+el('buyFreezeBtn').addEventListener('click', async () => {
+  const res = await diaryAPI.buyFreeze();
+  if (res && res.ok) { await renderStreak(); await renderProgress(); }
+  else {
+    const btn = el('buyFreezeBtn');
+    const original = btn.textContent;
+    btn.textContent = tt('buyFreezeNoCoins');
+    setTimeout(() => { btn.textContent = original; }, 1800);
+  }
+});
+
+/* ---------- focus sessions ---------- */
+let focusCountdownTimer = null;
+function fmtCountdown(ms) {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(total / 60), s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+function renderFocusState(state) {
+  if (focusCountdownTimer) { clearInterval(focusCountdownTimer); focusCountdownTimer = null; }
+  if (!state) {
+    el('focusIdle').classList.remove('hidden');
+    el('focusActive').classList.add('hidden');
+    return;
+  }
+  el('focusIdle').classList.add('hidden');
+  el('focusActive').classList.remove('hidden');
+  let remaining = state.remainingMs;
+  el('focusCountdown').textContent = fmtCountdown(remaining);
+  focusCountdownTimer = setInterval(() => {
+    remaining -= 1000;
+    if (remaining <= 0) { clearInterval(focusCountdownTimer); focusCountdownTimer = null; renderFocusState(null); return; }
+    el('focusCountdown').textContent = fmtCountdown(remaining);
+  }, 1000);
+}
+el('focusMinutes').addEventListener('change', (e) => {
+  el('focusCustomMinutes').classList.toggle('hidden', e.target.value !== 'custom');
+  if (e.target.value === 'custom') el('focusCustomMinutes').focus();
+});
+el('focusStartBtn').addEventListener('click', async () => {
+  const isCustom = el('focusMinutes').value === 'custom';
+  const minutes = isCustom ? (Number(el('focusCustomMinutes').value) || 25) : (Number(el('focusMinutes').value) || 25);
+  renderFocusState(await diaryAPI.startFocus(minutes));
+});
+el('focusStopBtn').addEventListener('click', async () => {
+  await diaryAPI.stopFocus();
+  renderFocusState(null);
+});
+if (diaryAPI.onFocusState) diaryAPI.onFocusState(renderFocusState);
+
+/* ---------- trophy case ---------- */
+async function renderTrophies() {
+  const grid = el('trophyGrid');
+  let data = { unlocked: [], all: [], stats: {} };
+  try { data = await diaryAPI.getAchievements(); } catch {}
+  const unlocked = new Set(data.unlocked || []);
+  const stats = data.stats || {};
+  grid.innerHTML = (data.all || []).map((a) => {
+    const locked = !unlocked.has(a.id);
+    const name = (a.name && a.name[lang === 'de' ? 'de' : 'en']) || a.id;
+    const desc = (a.desc && a.desc[lang === 'de' ? 'de' : 'en']) || '';
+    let progressHtml = '';
+    if (locked && a.metric && a.target) {
+      const val = Math.min(a.target, stats[a.metric] || 0);
+      const pct = Math.round((val / a.target) * 100);
+      progressHtml = `<div class="t-progress"><div class="t-progress-bar"><div class="t-progress-fill" style="width:${pct}%"></div></div>
+        <div class="t-progress-text">${tt('trophyProgress')(val, a.target)}</div></div>`;
+    }
+    return `<div class="trophy${locked ? ' locked' : ''}" title="${esc(desc)}">
+      <div class="t-icon">${locked ? '🔒' : a.emoji}</div>
+      <div class="t-name">${esc(name)}</div>
+      ${progressHtml}
+    </div>`;
+  }).join('');
+}
+
+/* ---------- ask your pet ---------- */
+function addChatMsg(role, text) {
+  const log = el('chatLog');
+  const div = document.createElement('div');
+  div.className = `chat-msg ${role}`;
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+  return div;
+}
+async function sendChat() {
+  const input = el('chatInput');
+  const question = input.value.trim();
+  if (!question) return;
+  input.value = '';
+  addChatMsg('you', question);
+  const thinking = addChatMsg('pet', tt('askThinking'));
+  const res = await diaryAPI.askPet(question);
+  if (res && res.ok) {
+    thinking.textContent = res.answer;
+  } else if (res && res.reason === 'no-key') {
+    thinking.textContent = tt('askNoKey');
+    thinking.classList.add('error');
+  } else {
+    thinking.textContent = tt('askError');
+    thinking.classList.add('error');
+  }
+}
+el('chatSendBtn').addEventListener('click', sendChat);
+el('chatInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') sendChat(); });
+
+/* ---------- weekly recap card ---------- */
+el('recapBtn').addEventListener('click', async () => {
+  const btn = el('recapBtn');
+  const original = btn.textContent;
+  btn.disabled = true;
+  const period = el('recapPeriod').value;
+  const res = await diaryAPI.generateRecap(period);
+  btn.textContent = (res && res.ok) ? tt('recapDone') : tt('recapFail');
+  setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 2200);
+});
+
+/* ---------- LAN mobile companion ---------- */
+async function renderLanInfo() {
+  let info = { enabled: false, port: 4827, token: '', ips: [] };
+  try { info = await diaryAPI.getLanInfo(); } catch {}
+  el('lanEnabled').checked = info.enabled;
+  const ul = el('lanUrls');
+  ul.innerHTML = '';
+  if (!info.ips.length) {
+    ul.innerHTML = `<li class="empty">${tt('lanNone')}</li>`;
+    return;
+  }
+  for (const ip of info.ips) {
+    const url = `http://${ip}:${info.port}/?t=${info.token}`;
+    const li = document.createElement('li');
+    li.className = 'lan-url';
+    li.innerHTML = `<span>${esc(url)}</span><button class="ghost-btn">${tt('lanCopy')}</button>`;
+    li.querySelector('button').addEventListener('click', async (e) => {
+      try { await navigator.clipboard.writeText(url); } catch {}
+      const b = e.currentTarget;
+      const orig = b.textContent;
+      b.textContent = tt('lanCopied');
+      setTimeout(() => { b.textContent = orig; }, 1500);
+    });
+    ul.appendChild(li);
+  }
+}
+el('lanEnabled').addEventListener('change', async (e) => {
+  await diaryAPI.setConfig({ lanWidget: { enabled: e.target.checked } });
+  renderLanInfo();
+});
+el('lanRegenBtn').addEventListener('click', async () => { await diaryAPI.regenerateLanToken(); renderLanInfo(); });
+
+/* ---------- cloud relay (opt-in) ---------- */
+function copyBtnFeedback(btn) {
+  const orig = btn.textContent;
+  btn.textContent = tt('lanCopied');
+  setTimeout(() => { btn.textContent = orig; }, 1500);
+}
+async function renderCloudInfo() {
+  let cr = { enabled: false, workerUrl: '', pushToken: '', viewToken: '' };
+  try { cr = await diaryAPI.getCloudInfo(); } catch {}
+  el('cloudEnabled').checked = !!cr.enabled;
+  if (document.activeElement !== el('cloudWorkerUrl')) el('cloudWorkerUrl').value = cr.workerUrl || '';
+  el('cloudPushToken').textContent = cr.pushToken || '–';
+  el('cloudViewToken').textContent = cr.viewToken || '–';
+  el('cloudShareUrl').textContent = cr.workerUrl
+    ? `${cr.workerUrl.replace(/\/$/, '')}/?t=${cr.viewToken}`
+    : '–';
+}
+el('cloudEnabled').addEventListener('change', async (e) => {
+  await diaryAPI.setCloudConfig({ enabled: e.target.checked });
+  renderCloudInfo();
+});
+el('cloudWorkerUrl').addEventListener('change', async (e) => {
+  await diaryAPI.setCloudConfig({ workerUrl: e.target.value.trim() });
+  renderCloudInfo();
+});
+el('cloudCopyPush').addEventListener('click', async (e) => {
+  try { await navigator.clipboard.writeText(el('cloudPushToken').textContent); } catch {}
+  copyBtnFeedback(e.currentTarget);
+});
+el('cloudCopyView').addEventListener('click', async (e) => {
+  try { await navigator.clipboard.writeText(el('cloudViewToken').textContent); } catch {}
+  copyBtnFeedback(e.currentTarget);
+});
+el('cloudCopyShare').addEventListener('click', async (e) => {
+  const txt = el('cloudShareUrl').textContent;
+  if (txt === '–') return;
+  try { await navigator.clipboard.writeText(txt); } catch {}
+  copyBtnFeedback(e.currentTarget);
+});
+el('cloudTestBtn').addEventListener('click', async () => {
+  const result = el('cloudTestResult');
+  const cr = await diaryAPI.getCloudInfo();
+  if (!cr.workerUrl) { result.textContent = tt('cloudTestFail'); return; }
+  await diaryAPI.pushCloudNow();
+  result.textContent = tt('cloudTestOk');
+  setTimeout(() => { result.textContent = ''; }, 4000);
+});
+el('cloudRegenBtn').addEventListener('click', async () => { await diaryAPI.regenerateCloudTokens(); renderCloudInfo(); });
 
 /* ---------- init ---------- */
 (async () => {
@@ -707,4 +1143,13 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden) refr
   bindSources();
   bindAi();
   bindSize();
+  bindWellness();
+  await refreshMacroState();
+  await renderMacroList();
+  await renderMacroStats();
+  await renderStreak();
+  await renderTrophies();
+  await renderLanInfo();
+  await renderCloudInfo();
+  renderFocusState(await diaryAPI.getFocusState());
 })();

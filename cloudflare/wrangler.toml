@@ -1,0 +1,9 @@
+name = "devpet-status"
+main = "devpet-status-worker.js"
+compatibility_date = "2026-06-01"
+
+# Create your own KV namespace and paste its id below:
+#   npx wrangler kv namespace create DEVPET_STATUS
+kv_namespaces = [
+  { binding = "DEVPET_STATUS", id = "<your-kv-namespace-id>" }
+]

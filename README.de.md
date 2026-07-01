@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/license-MIT-22c55e.svg?style=for-the-badge" alt="MIT License">
   <img src="https://img.shields.io/badge/Electron-2C2E3B?style=for-the-badge&logo=electron&logoColor=9FEAF9" alt="Electron">
   <img src="https://img.shields.io/badge/Platform-Windows%2011-0078D6?style=for-the-badge&logo=windows11&logoColor=white" alt="Platform: Windows">
-  <img src="https://img.shields.io/badge/runtime%20deps-keine-8b5cf6?style=for-the-badge" alt="Keine Runtime-Abhängigkeiten">
+  <img src="https://img.shields.io/badge/deps-2%20native-8b5cf6?style=for-the-badge" alt="Zwei native Abhängigkeiten">
   <img src="https://img.shields.io/badge/made%20with-%E2%9D%A4%EF%B8%8F%20%26%20Claude-ff5e5e?style=for-the-badge" alt="Mit Liebe und Claude gebaut">
 </p>
 
@@ -43,7 +43,9 @@
 | 📔 **Automatisches Dev-Tagebuch** | Tägliche Einträge aus deiner echten Aktivität, **nach Projekt gruppiert**, mit Statistiken — funktioniert **komplett offline**, optional von einer KI veredelt. |
 | 🎮 **Gamifiziert** | Verdiene **XP** und **Münzen** beim Coden, steige mit Konfetti im **Level** auf und gib deine Münzen im eingebauten **Münz-Shop** für neue Skins aus. |
 | 🔒 **Privacy-first** | Alles läuft **auf deinem Rechner**. Das Einzige, was ihn jemals verlassen kann, ist eine optionale KI-Tagebuch-Zusammenfassung — mit **deinem eigenen** API-Key, nur wenn du das aktivierst. |
-| 🪶 **Federleicht** | **Keine Runtime-Abhängigkeiten** außer Electron. (`jimp` ist nur ein Dev-Tool.) |
+| 🪶 **Leichtgewichtig** | Nach wie vor nur **zwei native Runtime-Abhängigkeiten** — `uiohook-napi` + `nut-js` treiben die Makro-Engine an; alles andere ist **pures Node + Electron**. (`jimp` ist nur ein Dev-Tool.) |
+| ⚙️ **Automatisiere den langweiligen Kram** | **Nimm Maus+Tastatur auf und spiel sie ab**, und lass DevPet **sich wiederholende Aktionen erkennen** und vorschlagen, ein Makro daraus zu machen — immer von dir geprüft & freigegeben, nie automatisch ausgeführt. |
+| 🏆 **Echter Coding-Begleiter** | **Erfolge**, **Coding-Streaks**, ein **Pomodoro-Fokus-Timer**, sanfte **Wellness-Erinnerungen** und ein **Frag-dein-Pet**-Chat, der nur auf deinen echten Stats basiert. |
 
 ### 🎬 Lern die Truppe kennen
 
@@ -162,10 +164,73 @@ Gib deine Münzen im eingebauten **Münz-Shop** (im Tagebuch-Fenster) aus, um ne
 
 > Das Fenster ist **überall klick-durchlässig — außer über dem Pet selbst**, damit es deiner Arbeit nie im Weg ist.
 
+### ⚙️ Makro-Aufnahme & -Wiedergabe
+
+DevPet ist jetzt auch ein **leichtgewichtiges Automatisierungs-Tool**. Drück **`Strg+Alt+R`**, um deine Maus und Tastatur aufzunehmen, mach die Sache einmal, und drück dann nochmal, um zu stoppen. Du bekommst eine **menschenlesbare Zusammenfassung**, was genau du getan hast — echte Schritte, kein bloßer Zähler — damit du sie prüfen, benennen und speichern kannst. Spiel jedes gespeicherte Makro mit **`Strg+Alt+P`** ab (oder per ▶-Klick im Tagebuch), und DevPet trackt die **eingesparte Zeit**.
+
+> 🛑 **Sicher by Design.** Jede Wiedergabe startet mit einem **3-Sekunden-Countdown** (Sprechblase), damit du ins richtige Fenster wechseln (oder abbrechen) kannst. Wiedergaben laufen **nur bei einer expliziten Aktion** — einem Hotkey oder einem ▶-Klick. Nichts wird jemals automatisch aufgenommen, gespeichert oder abgespielt.
+
+### 🔍 Smarte Muster-Erkennung
+
+Coden steckt voller kleiner Wiederholungen. DevPet bemerkt leise, wenn du **dieselbe kurze Aktion — oder dieselbe getippte Phrase — 3× hintereinander** machst, sogar **app-übergreifend** (in Excel kopieren → wechseln → in Outlook einfügen), und lässt eine freundliche *„das mache ich schon 3×…"*-Sprechblase aufpoppen — mit einem **Vorschlag im Tagebuch**, ein Makro daraus zu machen.
+
+- 👀 Es **schlägt immer nur vor** — du prüfst und gibst frei, exakt wie bei einer manuellen Aufnahme. Es **speichert oder startet nie von selbst**.
+- 🔒 **Sensible Fenster sind hart ausgeschlossen** von der Text-Erkennung — Passwort-Manager, Banking, Login-/Anmelde-Formulare und `.secrets`-Fenster werden nie gepuffert, nicht mal kurzzeitig.
+- 🎚️ Es hat einen **eigenen, sichtbaren Schalter** (größerer Privacy-Fußabdruck als der Rest der App) und lässt sich mit einem einzigen Klick abschalten.
+
+### 🏆 Erfolge
+
+**13 freischaltbare Trophäen**, jede mit einem **Fortschrittsbalken** für die, die du noch nicht hast.
+
+| | Trophäe | Wie du sie bekommst |
+|:---:|:---|:---|
+| 📦 | **Erster Commit** | Mach deinen ersten Commit |
+| 📦 | **Committed** / 🏗️ **Baumeister** | 50 / 250 Commits |
+| 🦉 | **Nachteule** | 10 Commits nach 23 Uhr |
+| 🤖 | **KI-Teamwork** | 25 KI-Coding-Sessions |
+| ⚙️ | **Automatisierer** | 10 Makros freigeben |
+| ⏱️ | **Zeitsparer** | 50× Makros abspielen |
+| 🎯 | **Fokussiert** / 🧘 **Deep Work** | 10 Fokus-Sessions / 10 Stunden Fokuszeit |
+| 🔥 | **Wochen** / **Monats** / 💎 **Hundert** | 7- / 30- / 100-Tage-Streaks |
+| ⭐ | **Level 10** | Erreiche Level 10 |
+
+### 🔥 Coding-Streaks
+
+Halt das Feuer am Brennen — DevPet trackt einen **täglichen Coding-Streak**, der mit jedem aktiven Tag wächst. Das Leben kommt dazwischen, deshalb kannst du Münzen für 🧊 **Freeze-Token** ausgeben, die **einen verpassten Tag überbrücken** (genau wie ein Streak-Freeze) und deinen Lauf am Leben halten.
+
+### 🎯 Fokus-Sessions
+
+Ein eingebauter **Pomodoro-Timer** (Standard **25 Min.**) mit **Live-Countdown**. Schließ die volle Session ab, und sie zählt für die Erfolge **Fokussiert** und **Deep Work** — brichst du früher ab, gibt's — wie bei einem echten Pomodoro — nichts. Derselbe „Zieh durch, was du anfängst"-Anreiz.
+
+### 🧘 Wellness-Erinnerungen
+
+Während eines langen, ununterbrochenen Coding-Abschnitts (Standard **nach 90 Minuten**) gibt DevPet dir eine **sanfte Streck-/Trink-Erinnerung** — *„schon lang dran! Kurz aufstehen, trinken, Augen entspannen?"* Reine Heads-up-Sprechblase, gekoppelt an echte Arbeitssignale: keine extra Erfassung, kein Tagebuch-Eintrag, kein XP.
+
+### 💬 Frag dein Pet
+
+Ein **Chat direkt im Tagebuch**, in dem du Fragen zu **deiner eigenen Coding-Aktivität** stellen kannst — *„wie viele Commits diese Woche?"*, *„woran habe ich am meisten gearbeitet?"* Das Pet antwortet **nur auf Basis deiner echten Stats** (keine erfundenen Fakten), mit dem **gleichen optionalen API-Key** wie das Tagebuch (DeepSeek / MiniMax / Claude). Es behält ein **sitzungsweites Gedächtnis**, damit Folgefragen einfach funktionieren.
+
+### 📱 Mobiler Begleiter (LAN)
+
+Eine winzige **nur-lesende, token-geschützte lokale Webseite**, damit ein Handy im **selben WLAN** einen Blick auf dein Pet werfen kann — **Level, Streak, Münzen und den Fokus-Countdown**. Sie läuft auf **Port `4827`** und **zeigt nie Tagebuch-Text, Prompts oder Tastenanschläge** — nur die paar Zahlen, die eh im Tray-Tooltip stehen.
+
+### ☁️ Optionales Cloud-Relay
+
+Willst du **von überall** nach deinem Pet schauen, nicht nur im selben WLAN? Du kannst dich für ein **Cloud-Relay** entscheiden — einen **Cloudflare Worker, den du selbst deployst** und der denselben winzigen Status-Schnappschuss empfängt.
+
+> ⚠️ **Das ist der einzige Weg, auf dem überhaupt Daten deinen Rechner verlassen.** Es ist **OPT-IN und standardmäßig AUS**, und selbst dann sendet es nur den **winzigen Gamification-Schnappschuss** (Level, Streak, Münzen, Fokus-Countdown, letzte Reaktions-Zeile) — **nie irgendeinen Aktivitäts-Inhalt**, Tagebuch-Text, Makros oder Tastenanschläge.
+
+### 🖼️ Teilbare Recap-Karte
+
+Ein Klick erzeugt eine schicke **PNG-„Coding-Woche/-Tag"-Karte** — Commits, bearbeitete Dateien, KI-Sessions, gesparte Zeit, Level und Streak — gespeichert in einem **Exports-Ordner** und **in die Zwischenablage kopiert**, bereit zum Einfügen überall dort, wo du deine Woche zeigen willst. 🎉
+
 ### 🔒 Privatsphäre & API-Keys
 
-- **Zu 100 % lokal.** Kein Account. Keine Telemetrie. Kein Cloud-Sync.
-- Das **Einzige**, was deinen Rechner jemals verlassen kann, ist eine **optionale KI-Tagebuch-Zusammenfassung** — erzeugt mit **deinem eigenen** API-Key, **nur wenn du** das aktivierst.
+- **Standardmäßig zu 100 % lokal.** Kein Account. Keine Telemetrie. Kein Cloud-Sync.
+- 🔍 Die **Muster-Erkennung** beobachtet lokale Tastenanschläge/Klicks im Hintergrund, um Wiederholungen zu erkennen — sie ist **abschaltbar**, **sensible Fenster sind ausgeschlossen**, und **es wird nie etwas irgendwohin gesendet**. Aufgenommene **Makros werden lokal gespeichert**.
+- 📱 Die **mobile LAN-Seite** ist **nur im selben WLAN**, **token-geschützt** und **nur-lesend** — sie nimmt nie Schreibzugriffe an und verlässt nie das lokale Netzwerk.
+- ☁️ Das **Cloud-Relay ist der einzige Opt-in-Weg von deinem Gerät weg** — standardmäßig AUS, und selbst dann pusht es nur den **winzigen Status-Schnappschuss** (kein Aktivitäts-Inhalt).
+- 🤖 Das **Einzige**, was per KI rausgeht, ist eine **optionale Tagebuch-Zusammenfassung / Frag-dein-Pet-Antwort** — erzeugt mit **deinem eigenen** API-Key, **nur wenn du** das aktivierst.
 - API-Keys sind **optional** und werden lokal in `.secrets/` oder als Umgebungsvariablen gespeichert. Sie sind **nie erforderlich** — ohne Key nutzt das Tagebuch den eingebauten Offline-Template-Writer.
 
 ### 🚀 Loslegen
@@ -181,17 +246,21 @@ npm start
 
 Das war's — dein Pet erscheint auf dem Desktop. 🎉
 
+> ⚙️ **Zu `npm install`:** Es zieht jetzt auch die **zwei nativen Module** für die Makro-Engine (`uiohook-napi` + `nut-js`). Auf **Windows 11** kommen die als **vorkompilierte Binaries**, also gibt's normalerweise nichts zu kompilieren — die Installation läuft einfach durch.
+
 > 🪟 **Windows-Ein-Klick:** Statt Terminal kannst du auch einfach **`Start DevPet.bat` doppelklicken** — installiert beim ersten Mal die Abhängigkeiten und startet das Pet (es bleibt kein Konsolenfenster offen).
 
 **Optional — KI-Tagebuch-Zusammenfassungen aktivieren:** Lege eine API-Key-Datei unter `.secrets/deepseek.key` (oder `.secrets/minimax.key`) ab. Andernfalls nutzt das Tagebuch fröhlich den Offline-Template-Writer.
 
 ### 🧩 Technik & wie es gebaut ist
 
-- **Electron + pures Node** — **keine Runtime-Abhängigkeiten** außer Electron. (`jimp` ist ein reines Dev-Asset-Tool.)
+- **Electron + pures Node** — nur **zwei native Runtime-Abhängigkeiten**: **`uiohook-napi`** (globale Eingabe-Erfassung für Aufnahme & Muster-Erkennung) und **`@nut-tree-fork/nut-js`** (Eingabe-Wiedergabe für Makro-Replay). Alles andere ist pures Node. (`jimp` ist ein reines Dev-Asset-Tool.)
 - **Transparentes Pet-Fenster** — immer im Vordergrund, klick-durchlässig, fokus-sicher, auf Windows 11 abgestimmt.
 - **2-Layer-Video-Engine** — blendet zwischen **transparenten VP9-WebM**-Clips mit echtem Alpha über, für butterweiche Übergänge.
 - **Asset-Pipeline** — rohe handgezeichnete Animationen laufen durch eine Pipeline (`scripts/normalize-poses.js`, `scripts/process-chroma.js`, …), die **chroma-keyed**, am **Boden verankert** und jede Pose als sauberes transparentes WebM exportiert.
 - **Lokale Monitore** — Git-, Datei- und AI-Session-Reader, alle auf dem Gerät.
+- **Makro-Engine** — ein Recorder, ein Menschenlesbar-Schritt-Zusammenfasser und ein countdown-geschützter Player, dazu Klick- und Text-Muster-Detektoren, die immer nur *vorschlagen*.
+- **Winziger lokaler HTTP-Server** — Nodes eingebautes `http` treibt die token-geschützte mobile Seite im selben WLAN an (keine extra Abhängigkeit).
 - **Kostenloses Edge TTS** — gibt jedem Skin seine eigene Stimme, ganz ohne API-Kosten.
 
 ### 📁 Projektstruktur
@@ -201,15 +270,23 @@ devpet/
 ├─ src/
 │  ├─ main/                # Electron-Hauptprozess
 │  │  ├─ monitors/         # Git-, Datei- & AI-Session-Watcher
+│  │  ├─ automation/       # Makro-Engine + Muster-Erkennung
+│  │  │                    #   recorder · player · macroStore · humanize
+│  │  │                    #   patternDetector · textPatternDetector
+│  │  │                    #   keymap · sensitiveWindows · activeWindow
 │  │  ├─ diary/            # Tagebuch-Store + Reporter
+│  │  ├─ streaks.js        # täglicher Coding-Streak + Freeze-Token
+│  │  ├─ lanServer.js      # nur-lesende, token-geschützte Status-Seite (selbes WLAN)
 │  │  ├─ tray.js · tts.js  # Tray-Menü + Edge-TTS-Stimmen
 │  │  └─ progress.js       # XP, Level & Münzen
 │  ├─ preload/             # Context-Bridge-API
 │  ├─ renderer/
 │  │  ├─ pet/              # transparentes Pet-Fenster + State Machine
-│  │  └─ diary/            # Dev-Tagebuch + Münz-Shop-UI
-│  └─ shared/              # Creatures-Liste, geteilte Helfer
+│  │  ├─ diary/            # Dev-Tagebuch, Münz-Shop, Makros & Frag-dein-Pet-UI
+│  │  └─ recap/            # Renderer der teilbaren Recap-Karte (→ PNG)
+│  └─ shared/              # Creatures-Liste, Erfolge, geteilte Helfer
 ├─ scripts/                # Asset-Pipeline (rohe Anim → transparentes WebM)
+├─ cloudflare/             # optionaler Opt-in-Cloud-Relay-Worker
 └─ assets/
    └─ creatures/<id>/      # WebM-Animationen + Thumbnails pro Skin
 ```

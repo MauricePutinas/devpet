@@ -35,3 +35,7 @@ desktop.ini
 *.swp
 *.swo
 *~
+
+# Cloudflare Worker build cache
+cloudflare/.wrangler/
+.wrangler/

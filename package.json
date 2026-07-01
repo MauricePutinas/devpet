@@ -16,6 +16,8 @@
     "gamification",
     "diary",
     "productivity",
+    "automation",
+    "macros",
     "transparent-window",
     "always-on-top"
   ],
@@ -31,6 +33,10 @@
   "homepage": "https://github.com/MauricePutinas/devpet#readme",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "uiohook-napi": "^1.5.5",
+    "@nut-tree-fork/nut-js": "^4.2.6"
   },
   "devDependencies": {
     "electron": "latest",

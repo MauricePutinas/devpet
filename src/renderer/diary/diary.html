@@ -27,6 +27,7 @@
         <div class="level-row">
           <span class="level-badge">⭐ <span data-i18n="level">Level</span>&nbsp;<span id="levelNum">1</span></span>
           <span class="coin-badge" id="coinHero" title="Coins">🪙 <span id="coinNum">0</span></span>
+          <span class="streak-badge" id="streakBadge" title="Streak">🔥 <span id="streakNum">0</span></span>
           <div class="xp-wrap">
             <div class="xp-bar"><div class="xp-fill" id="xpFill"></div></div>
             <div class="xp-text" id="xpText">0 / 50 XP</div>
@@ -34,6 +35,56 @@
         </div>
       </div>
     </section>
+
+    <!-- STREAK + FOCUS -->
+    <div class="insights-grid">
+      <section class="card">
+        <div class="card-head"><h2 data-i18n="streakTitle">🔥 Streak</h2></div>
+        <div class="streak-row">
+          <div class="streak-num" id="streakCurrent">0</div>
+          <div class="streak-info">
+            <div class="streak-best" id="streakBest" data-i18n="streakBest">Best: 0 days</div>
+            <div class="streak-freeze" id="streakFreezeCount" data-i18n="streakFreezes">🧊 0 freezes</div>
+          </div>
+        </div>
+        <button id="buyFreezeBtn" class="ghost-btn" data-i18n="buyFreeze">🧊 Buy freeze (200 🪙)</button>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2 data-i18n="focusTitle">🎯 Focus session</h2></div>
+        <div id="focusIdle">
+          <div class="focus-picker">
+            <select id="focusMinutes">
+              <option value="15">15 min</option>
+              <option value="25" selected>25 min</option>
+              <option value="45">45 min</option>
+              <option value="60">60 min</option>
+              <option value="custom" data-i18n="focusCustom">Custom…</option>
+            </select>
+            <input type="number" id="focusCustomMinutes" class="hidden" min="1" max="240" data-i18n-placeholder="focusCustomPlaceholder" placeholder="minutes" />
+            <button id="focusStartBtn" class="primary-btn" data-i18n="focusStart">▶ Start</button>
+          </div>
+        </div>
+        <div id="focusActive" class="hidden">
+          <div class="focus-countdown" id="focusCountdown">25:00</div>
+          <button id="focusStopBtn" class="ghost-btn" data-i18n="focusStop">Stop (no reward)</button>
+        </div>
+        <p class="hint" data-i18n="focusHint">Only a fully completed session earns XP — stopping early gives nothing, on purpose.</p>
+      </section>
+
+      <section class="card span-2">
+        <div class="card-head"><h2 data-i18n="wellnessTitle">💧 Wellness nudges</h2></div>
+        <label class="check"><input type="checkbox" id="wellnessEnabled" /> <span data-i18n="wellnessCheck">Remind me to take a break</span></label>
+        <div class="field"><label data-i18n="wellnessAfter">Nudge after (minutes of continuous activity)</label>
+          <select id="wellnessMinutes">
+            <option value="30">30</option>
+            <option value="60">60</option>
+            <option value="90" selected>90</option>
+            <option value="120">120</option>
+          </select>
+        </div>
+      </section>
+    </div>
 
     <!-- DIARY REPORT -->
     <section class="card report-card">
@@ -46,6 +97,17 @@
       </div>
       <div id="reportStats" class="rstats hidden"></div>
       <div id="report" class="report" data-i18n="reportPlaceholder">Choose "Generate report" so your pet sums up the day.</div>
+    </section>
+
+    <!-- ASK YOUR PET -->
+    <section class="card">
+      <div class="card-head"><h2 data-i18n="askTitle">💬 Ask your pet</h2></div>
+      <div id="chatLog" class="chat-log"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chatInput" maxlength="200" data-i18n-placeholder="askPlaceholder" placeholder="How productive was I this week?" />
+        <button id="chatSendBtn" class="primary-btn" data-i18n="askSend">Ask</button>
+      </div>
+      <p class="hint" data-i18n="askHint">Uses the same AI key configured below — answers are based only on your real activity.</p>
     </section>
 
     <!-- ACTIVITY -->
@@ -90,6 +152,83 @@
         <label class="check"><input type="checkbox" id="srcGit" /> <span data-i18n="srcGit">Git commits & changes</span></label>
         <label class="check"><input type="checkbox" id="srcFiles" /> <span data-i18n="srcFiles">File changes in the project folder</span></label>
         <label class="check"><input type="checkbox" id="srcAi" /> <span data-i18n="srcAi">AI coding sessions (Claude Code)</span></label>
+        <label class="check"><input type="checkbox" id="srcMacro" /> <span data-i18n="srcMacro">Recorded macros (automation)</span></label>
+      </section>
+
+      <!-- AUTOMATION / MACROS -->
+      <section class="card span-2">
+        <div class="card-head">
+          <h2 data-i18n="macrosTitle">🤖 Automation</h2>
+          <div class="row-actions">
+            <span id="macroSavedBadge" class="badge hidden"></span>
+            <button id="macroRecordBtn" class="primary-btn" data-i18n="recordStart">⏺ Start recording</button>
+          </div>
+        </div>
+        <p class="hint" data-i18n="macroHint">Records keyboard &amp; mouse clicks while active. Every recording must be reviewed and approved here before it's saved — nothing ever replays on its own.</p>
+
+        <label class="check patdet-check"><input type="checkbox" id="patternDetect" /> <span data-i18n="patDetCheck">🔍 Background pattern detection (suggests candidates only — never auto-saves)</span></label>
+        <p class="hint" data-i18n="patDetHint">Watches for the same short action repeated 3× in a row in the same app. Only ever shows up as a suggestion below — still needs your review and approval.</p>
+
+        <ul id="macroSuggestions" class="macro-list suggestions"></ul>
+
+        <div id="macroPending" class="macro-pending hidden">
+          <div class="macro-pending-head" data-i18n="macroPendingHead">🔍 New recording — review before approving:</div>
+          <div id="macroPreview" class="macro-preview"></div>
+          <div class="field"><input type="text" id="macroName" maxlength="48" data-i18n-placeholder="macroNamePlaceholder" placeholder="Name this automation…" /></div>
+          <div class="pending-actions">
+            <button id="macroApproveBtn" class="primary-btn" data-i18n="macroApprove">✅ Approve &amp; save</button>
+            <button id="macroDiscardBtn" class="ghost-btn" data-i18n="macroDiscard">Discard</button>
+          </div>
+        </div>
+
+        <ul id="macroList" class="macro-list"></ul>
+      </section>
+
+      <section class="card span-2">
+        <div class="card-head"><h2 data-i18n="trophyTitle">🏆 Trophy case</h2></div>
+        <div id="trophyGrid" class="trophy-grid"></div>
+      </section>
+
+      <section class="card span-2">
+        <div class="card-head">
+          <h2 data-i18n="lanTitle">📱 Mobile companion (local network)</h2>
+          <label class="check" style="padding:0"><input type="checkbox" id="lanEnabled" /> <span data-i18n="lanEnabledCheck">Enabled</span></label>
+        </div>
+        <p class="hint" data-i18n="lanHint">Open this on your phone while it's on the SAME WiFi as this PC to see level, streak, coins & focus countdown — read-only, nothing from your diary or macros ever leaves this network.</p>
+        <ul id="lanUrls" class="lan-urls"></ul>
+        <button id="lanRegenBtn" class="ghost-btn" data-i18n="lanRegen">🔄 New link (invalidates the old one)</button>
+      </section>
+
+      <!-- CLOUD RELAY (opt-in) -->
+      <section class="card span-2">
+        <div class="card-head">
+          <h2 data-i18n="cloudTitle">☁️ Cloud companion (from anywhere)</h2>
+          <label class="check" style="padding:0"><input type="checkbox" id="cloudEnabled" /> <span data-i18n="lanEnabledCheck">Enabled</span></label>
+        </div>
+        <p class="hint" data-i18n="cloudHint">Opt-in only. Pushes the same tiny status (level, streak, coins, focus) to a Worker YOU deploy — this is the only thing in DevPet that ever leaves your PC. Setup file: cloudflare/devpet-status-worker.js in the project folder.</p>
+
+        <div class="field"><label data-i18n="cloudWorkerUrlLabel">Worker URL (after you deploy it)</label>
+          <input type="text" id="cloudWorkerUrl" placeholder="https://devpet-status.your-subdomain.workers.dev" />
+        </div>
+
+        <div class="cloud-tokens">
+          <div class="field"><label data-i18n="cloudPushTokenLabel">PUSH_TOKEN secret (paste into Cloudflare)</label>
+            <div class="lan-url"><span id="cloudPushToken">–</span><button id="cloudCopyPush" class="ghost-btn" data-i18n="lanCopy">Copy</button></div>
+          </div>
+          <div class="field"><label data-i18n="cloudViewTokenLabel">VIEW_TOKEN secret (paste into Cloudflare)</label>
+            <div class="lan-url"><span id="cloudViewToken">–</span><button id="cloudCopyView" class="ghost-btn" data-i18n="lanCopy">Copy</button></div>
+          </div>
+        </div>
+
+        <div class="field"><label data-i18n="cloudShareUrlLabel">Your phone-anywhere link</label>
+          <div class="lan-url"><span id="cloudShareUrl">–</span><button id="cloudCopyShare" class="ghost-btn" data-i18n="lanCopy">Copy</button></div>
+        </div>
+
+        <div class="pending-actions">
+          <button id="cloudTestBtn" class="ghost-btn" data-i18n="cloudTest">📡 Send test push now</button>
+          <button id="cloudRegenBtn" class="ghost-btn" data-i18n="cloudRegen">🔄 New tokens</button>
+        </div>
+        <p class="hint" id="cloudTestResult"></p>
       </section>
 
       <section class="card span-2">
@@ -117,6 +256,11 @@
     </div>
 
     <div class="footer-actions">
+      <select id="recapPeriod" class="recap-period">
+        <option value="week" data-i18n="recapWeek">Week</option>
+        <option value="day" data-i18n="recapDay">Day</option>
+      </select>
+      <button id="recapBtn" class="ghost-btn" data-i18n="recapBtn">🖼️ Create recap card</button>
       <button id="demoBtn" class="ghost-btn" data-i18n="demo">Load demo data</button>
       <button id="dataBtn" class="ghost-btn" data-i18n="openData">Open data folder</button>
     </div>

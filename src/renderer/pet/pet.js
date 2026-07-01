@@ -225,11 +225,44 @@ function next() {
 /* ---------- activity from monitors ---------- */
 petAPI.onActivity((ev) => {
   wake();
-  if (ev.type === 'commit') { playSound('happy'); setState('happy'); }
-  // non-commit = file edits / AI coding sessions → the pet "comments" on your coding.
-  // If this creature has a coding clip (King 👑), play it; otherwise just the sound.
+  // commit / successful macro replay = a little win → happy. Everything else (file
+  // edits, AI sessions, a newly-approved macro) = "I'm paying attention" → alert/code.
+  if (ev.type === 'commit' || ev.type === 'macroReplay' || ev.type === 'achievement') { playSound('happy'); setState('happy'); }
   else { playSound('alert'); if (frames.videoCode) setState('code'); }
   if (ev && ev.line) showBubble(ev.line);
+});
+
+/* ---------- macro recording indicator (persistent red dot, independent of poses) ---------- */
+const recDot = document.getElementById('recDot');
+petAPI.onRecording((on) => recDot.classList.toggle('hidden', !on));
+petAPI.onSuggestion((line) => { wake(); showBubble(line, 4500); });
+
+/* ---------- replay safety countdown (direct, bypasses the speech-bubble queue) ---------- */
+petAPI.onCountdown((line) => {
+  wake();
+  bubble.textContent = line;
+  bubble.classList.add('show');
+});
+
+/* ---------- focus-session badge (persistent countdown, independent of poses) ---------- */
+const focusBadge = document.getElementById('focusBadge');
+let focusTicker = null;
+function fmtRemaining(ms) {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const m = Math.floor(total / 60), s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+petAPI.onFocusState((state) => {
+  if (focusTicker) { clearInterval(focusTicker); focusTicker = null; }
+  if (!state) { focusBadge.classList.add('hidden'); return; }
+  focusBadge.classList.remove('hidden');
+  let remaining = state.remainingMs;
+  focusBadge.textContent = `🎯 ${fmtRemaining(remaining)}`;
+  focusTicker = setInterval(() => {
+    remaining -= 1000;
+    if (remaining <= 0) { clearInterval(focusTicker); focusTicker = null; focusBadge.classList.add('hidden'); return; }
+    focusBadge.textContent = `🎯 ${fmtRemaining(remaining)}`;
+  }, 1000);
 });
 
 /* ---------- level up celebration ---------- */

@@ -21,4 +21,8 @@ contextBridge.exposeInMainWorld('petAPI', {
   requestSpeak: (text) => ipcRenderer.send('pet:speak', text),
   getLang: () => ipcRenderer.invoke('app:getLang'),
   onLang: (cb) => ipcRenderer.on('lang', (_e, l) => cb(l)),
+  onRecording: (cb) => ipcRenderer.on('macro-recording', (_e, v) => cb(v)),
+  onSuggestion: (cb) => ipcRenderer.on('suggestion-bubble', (_e, line) => cb(line)),
+  onFocusState: (cb) => ipcRenderer.on('focus-state', (_e, s) => cb(s)),
+  onCountdown: (cb) => ipcRenderer.on('countdown-bubble', (_e, line) => cb(line)),
 });

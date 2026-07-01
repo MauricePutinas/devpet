@@ -17,7 +17,19 @@ const DEFAULTS = {
   petPosition: null, // {x, y} or null = auto bottom-right
   petAnchor: null, // {cx, bottom} stable resize anchor (set on drag-end)
   watchedFolders: [], // absolute paths to project folders
-  sources: { git: true, files: true, ai: true },
+  sources: { git: true, files: true, ai: true, macro: true },
+  macros: [], // approved automations: {id,name,createdAt,durationMs,steps,timesReplayed}
+  macroStats: { totalTimeSavedMs: 0, totalReplays: 0 },
+  // Background pattern detection: watches for the same short action repeated 3x back-
+  // to-back in the same app and SUGGESTS it (never auto-saves/auto-replays). Bigger
+  // privacy footprint than the rest of the app (continuous local keystroke/click
+  // watching) — kept as its own explicit, visible toggle rather than bundled into
+  // `sources.macro` (which only gates whether approved-macro activity is logged).
+  patternDetection: true,
+  // Keyboard layout for reconstructing TYPED text in pattern detection. 'auto' picks by
+  // UI language (de → QWERTZ, else US); override with 'us' or 'de'. Fixes the y/z swap,
+  // umlauts (ä ö ü ß) and German punctuation for German typists.
+  keyboardLayout: 'auto',
   // Claude Code stores sessions here; used as the "AI coding session" signal.
   claudeProjectsPath: path.join(os.homedir(), '.claude', 'projects'),
   ai: {
@@ -33,6 +45,23 @@ const DEFAULTS = {
   progress: { xp: 0, level: 1 }, // gamification: the pet levels up as you code
   coins: 0, // 🪙 earned by coding, spent in the skin shop
   unlockedSkins: [], // ids of purchased locked skins (see creatures.js price field)
+  // Lifetime counters — kept as running totals (incremented alongside XP) rather than
+  // rescanned from the diary on every check, so achievements/streaks stay cheap to read.
+  lifetimeStats: { commits: 0, files: 0, aiSessions: 0, macros: 0, macroReplays: 0, focusSessions: 0, focusMinutes: 0, nightCommits: 0, bestStreak: 0 },
+  achievements: [], // unlocked trophy ids, see src/shared/achievements.js
+  streakFreezes: 0, // 🧊 protects a streak through one inactive day, buyable with coins
+  usedFreezeDates: [], // day-keys already bridged by a freeze — keeps streak recompute idempotent
+  wellness: { enabled: true, nudgeAfterMinutes: 90 }, // gentle stretch/water reminder during long unbroken sessions
+  focus: { defaultMinutes: 25 }, // Pomodoro-style focus session length
+  // Read-only mobile companion: a tiny local HTTP server (same-WiFi only, token-gated)
+  // showing level/streak/coins/focus — never anything from the diary, macros, or
+  // keystrokes. Token is generated on first use; null here means "not generated yet".
+  lanWidget: { enabled: true, token: null },
+  // Optional cloud relay (opt-in, OFF by default): pushes the same tiny status snapshot
+  // to a user-deployed Cloudflare Worker every ~2 min so the phone can check on the pet
+  // from anywhere, not just on the same WiFi. This is the only path in DevPet where any
+  // data ever leaves the local machine — see cloudflare/devpet-status-worker.js.
+  cloudRelay: { enabled: false, workerUrl: '', pushToken: null, viewToken: null },
   // Automatic diary reports: a daily summary at `hour`:00, plus a weekly recap on Sundays.
   // Summarised with whatever AI key is available (DeepSeek preferred). App must be running.
   autoReport: { enabled: true, hour: 23, daily: true, weekly: true },
