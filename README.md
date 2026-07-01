@@ -305,6 +305,7 @@ Released under the **MIT License**. Built with ❤️ and Claude by **Maurice**.
 
 ### 2026-07-01
 
+- ✨ feat: refreshed icon set (sheet 82) + Volt hacking animation + DeepSeek option `ff97e59`
 - ✨ feat: pixel-art Volt idle + AltGr text capture + trophy/icon art `88d56ce`
 - ✨ feat: automation engine (macro record/replay + pattern detection), achievements, streaks, focus timer, wellness nudges, ask-your-pet chat, LAN companion + cloud relay, shareable recap card; fix German QWERTZ text detection &amp; recap export dialog `b42c615`
 
