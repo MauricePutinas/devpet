@@ -83,6 +83,13 @@ function setState(st) {
     nxt.classList.add('on');
     cur.classList.remove('on');
     front = 1 - front;
+    // Some reaction clips run longer than the 4.5s default net (e.g. Volt's ~6s "code" clip).
+    // Once the real duration is known, stretch the safety timer so the clip isn't cut off
+    // early; nxt.onended still returns to idle at the exact end.
+    if (isOne && oneShotTimer && isFinite(nxt.duration) && nxt.duration > 0) {
+      clearTimeout(oneShotTimer);
+      oneShotTimer = setTimeout(recover, nxt.duration * 1000 + 900);
+    }
   };
   const recover = () => {
     if (oneShotTimer) { clearTimeout(oneShotTimer); oneShotTimer = null; }
