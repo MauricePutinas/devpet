@@ -303,6 +303,10 @@ Released under the **MIT License**. Built with ❤️ and Claude by **Maurice**.
 
 <!-- CHANGELOG:START -->
 
+### 2026-07-01
+
+- ✨ feat: automation engine (macro record/replay + pattern detection), achievements, streaks, focus timer, wellness nudges, ask-your-pet chat, LAN companion + cloud relay, shareable recap card; fix German QWERTZ text detection &amp; recap export dialog `b42c615`
+
 ### 2026-06-30
 
 - ✨ feat: automatic daily &amp; weekly DeepSeek reports + activity cards show edited files and expand on click `52ad5e6`
