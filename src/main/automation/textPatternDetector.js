@@ -19,6 +19,7 @@ const activeWindow = require('./activeWindow');
 const config = require('../config');
 
 const MODIFIER_NAMES = new Set(['Ctrl', 'CtrlRight', 'Alt', 'AltRight', 'Shift', 'ShiftRight', 'Meta', 'MetaRight']);
+const COMMAND_MODS = new Set(['Ctrl', 'CtrlRight', 'Alt', 'AltRight', 'Meta', 'MetaRight']); // Shift is a typing modifier, not a command one
 const MIN_CHARS = 8;          // shorter than this isn't worth comparing as "a phrase"
 const MAX_SEGMENTS = 60;      // rolling history of completed segments
 const RAW_LOG_CAP = 900;
@@ -32,17 +33,22 @@ const MIN_SPAN_MS = 1500;
 // swap, umlauts (ä ö ü ß) and German punctuation/shift so reconstructed phrases are
 // readable AND match correctly for German typists. Picked automatically from the app
 // language, overridable via config.keyboardLayout ('auto' | 'us' | 'de').
-// Note: AltGr (right-Alt) third-level chars (@ € { } [ ] \\ | ~) are NOT captured — any
-// Alt combo is treated as a command — so those remain a known gap on the DE layout.
+// AltGr (right-Alt) third-level chars ARE captured on DE (@ € { } [ ] \\ ~ µ ² ³) — see
+// _handleKey, which treats right-Alt as a third-level shift rather than a command modifier.
+// Remaining gap: the ISO "<>" key has no uiohook name, so AltGr+< ('|') still can't be seen.
 const LAYOUTS = {
   us: {
     swap: null,
+    altgr: null, // classic US keyboard has no AltGr third level
     digitShift: { 0: ')', 1: '!', 2: '@', 3: '#', 4: '$', 5: '%', 6: '^', 7: '&', 8: '*', 9: '(' },
     punct: { Space: ' ', Comma: ',', Period: '.', Slash: '/', Semicolon: ';', Quote: "'", BracketLeft: '[', BracketRight: ']', Backslash: '\\', Minus: '-', Equal: '=', Backquote: '`' },
     punctShift: { Comma: '<', Period: '>', Slash: '?', Semicolon: ':', Quote: '"', BracketLeft: '{', BracketRight: '}', Backslash: '|', Minus: '_', Equal: '+', Backquote: '~' },
   },
   de: {
     swap: { Y: 'Z', Z: 'Y' }, // QWERTZ swaps the physical Y and Z keys
+    // AltGr (right-Alt) third level. Windows delivers AltGr as Ctrl+RightAlt; _handleKey
+    // resolves it to these characters instead of treating the combo as a command.
+    altgr: { Q: '@', E: '€', M: 'µ', 2: '²', 3: '³', 7: '{', 8: '[', 9: ']', 0: '}', Minus: '\\', BracketRight: '~' },
     digitShift: { 0: '=', 1: '!', 2: '"', 3: '§', 4: '$', 5: '%', 6: '&', 7: '/', 8: '(', 9: ')' },
     punct: { Space: ' ', Comma: ',', Period: '.', Slash: '-', Semicolon: 'ö', Quote: 'ä', BracketLeft: 'ü', BracketRight: '+', Backslash: '#', Minus: 'ß', Equal: '´', Backquote: '^' },
     punctShift: { Comma: ';', Period: ':', Slash: '_', Semicolon: 'Ö', Quote: 'Ä', BracketLeft: 'Ü', BracketRight: '*', Backslash: "'", Minus: '?', Equal: '`', Backquote: '°' },
@@ -56,8 +62,9 @@ function resolveLayout() {
   return cfg.language === 'de' ? LAYOUTS.de : LAYOUTS.us; // 'auto'
 }
 
-function charFor(name, shift, L) {
+function charFor(name, shift, altgr, L) {
   if (!name) return null;
+  if (altgr) return (L.altgr && L.altgr[name]) || null; // AltGr third level; unmapped key = non-text
   if (/^[A-Z]$/.test(name)) { const c = (L.swap && L.swap[name]) || name; return shift ? c : c.toLowerCase(); }
   if (/^[0-9]$/.test(name)) return shift ? L.digitShift[name] : name;
   if (shift && L.punctShift[name]) return L.punctShift[name];
@@ -81,6 +88,7 @@ class TextPatternDetector {
     this.rawLog = []; // shared raw buffer, same shape as PatternDetector's
     this.held = new Set();
     this.activeCodes = new Set();
+    this.bareMod = false; // a command modifier is down with no key pressed yet → a lone tap should end the segment
     this.buffer = ''; // in-progress segment text
     this.bufferStartRaw = -1; // rawLog index where the current segment began
     this.bufferWin = '';
@@ -149,19 +157,37 @@ class TextPatternDetector {
     const name = codeToName(e.keycode);
 
     if (name && MODIFIER_NAMES.has(name)) {
-      if (phase === 'down') this.held.add(name); else this.held.delete(name);
-      // a held Ctrl/Alt combo is a command (e.g. Ctrl+C), not typing — flush what came before
-      if (phase === 'down' && (name === 'Ctrl' || name === 'CtrlRight' || name === 'Alt' || name === 'AltRight' || name === 'Meta' || name === 'MetaRight')) {
-        this._flushSegment();
+      // Don't flush on the modifier press itself: Windows delivers AltGr as Ctrl+RightAlt,
+      // so flushing here would chop the word right before an AltGr char (e.g. the "@" in an
+      // address). Instead we ARM a "bare tap" flag on a command-modifier down and only flush
+      // when it's released with no key pressed in between — that restores the old lone
+      // Ctrl/Alt/Win-tap segment boundary, while any intervening key (text OR command) disarms
+      // it (cleared below) so AltGr combos and real shortcuts stay intact.
+      if (phase === 'down') {
+        this.held.add(name);
+        if (COMMAND_MODS.has(name)) this.bareMod = true;
+      } else {
+        this.held.delete(name);
+        if (COMMAND_MODS.has(name) && this.bareMod) { this.bareMod = false; this._flushSegment(); }
       }
       return;
     }
     if (phase === 'up') { this.activeCodes.delete(e.keycode); return; }
     if (this.activeCodes.has(e.keycode)) return; // OS key-repeat while held
     this.activeCodes.add(e.keycode);
+    this.bareMod = false; // a real key was pressed → whatever modifiers are held aren't a bare tap
 
-    if (this.held.has('Ctrl') || this.held.has('CtrlRight') || this.held.has('Alt') || this.held.has('AltRight') || this.held.has('Meta') || this.held.has('MetaRight')) {
-      return; // part of a command combo, not text
+    const L = resolveLayout();
+    const shift = this.held.has('Shift') || this.held.has('ShiftRight');
+    // AltGr = right-Alt held; on a layout with a third level it produces a real character
+    // (@ € { } …) rather than acting as a command modifier.
+    const altGrChar = this.held.has('AltRight') ? charFor(name, false, true, L) : null;
+
+    // A held command modifier (Ctrl / left-Alt / Meta — or a right-Alt that is NOT yielding
+    // an AltGr char) means a shortcut, not typing → end the current segment.
+    if (!altGrChar && (this.held.has('Ctrl') || this.held.has('CtrlRight') || this.held.has('Alt') || this.held.has('AltRight') || this.held.has('Meta') || this.held.has('MetaRight'))) {
+      this._flushSegment();
+      return;
     }
 
     if (name === 'Backspace') {
@@ -173,7 +199,7 @@ class TextPatternDetector {
       this._flushSegment();
       return;
     }
-    const ch = charFor(name, this.held.has('Shift') || this.held.has('ShiftRight'), resolveLayout());
+    const ch = altGrChar || charFor(name, shift, false, L);
     if (ch === null) { this._flushSegment(); return; } // arrows, F-keys, Delete, Home/End, … → boundary
 
     if (!this.buffer) { this.bufferStartRaw = idx; this.bufferWin = win; }

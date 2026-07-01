@@ -1029,6 +1029,21 @@ function registerIpc() {
     });
   });
   ipcMain.handle('shop:buy', (_e, id) => buySkin(id));
+  // Trophy + UI-icon graphics as base64 data URLs (the renderer loads images this way,
+  // not via file:// paths). Keyed by filename: trophies by achievement id, icons by name.
+  ipcMain.handle('assets:images', () => {
+    const readDir = (sub) => {
+      const out = {};
+      try {
+        for (const f of fs.readdirSync(path.join(ASSETS, sub))) {
+          if (!f.endsWith('.png')) continue;
+          try { out[f.slice(0, -4)] = 'data:image/png;base64,' + fs.readFileSync(path.join(ASSETS, sub, f)).toString('base64'); } catch {}
+        }
+      } catch {}
+      return out;
+    };
+    return { trophies: readDir('trophies'), icons: readDir('icons') };
+  });
   ipcMain.handle('app:getProgress', () => progress.state());
   ipcMain.handle('app:getLang', () => config.load().language || 'en');
   ipcMain.on('pet:speak', (_e, text) => { // pet was clicked → say a line aloud
@@ -1367,6 +1382,7 @@ if (!gotLock) {
     scheduleReports();   // auto daily report at 23:00 (+ weekly recap on Sundays)
     catchUpReports();    // …and catch up if the app launched after that time
   });
+
 
   app.on('window-all-closed', () => { /* stay alive in tray */ });
   app.on('before-quit', () => {

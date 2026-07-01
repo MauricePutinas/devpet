@@ -6,6 +6,7 @@ let creatures = [];
 let EMOJI = {};
 let NAME = {};
 let lang = 'en';
+let IMG = { trophies: {}, icons: {} }; // base64 data-URL graphics (trophies by id, icons by name)
 
 const T = {
   en: {
@@ -433,12 +434,12 @@ function renderReportStats(events) {
   const d = dayStats(events);
   const active = d.first && d.last ? Math.max(1, Math.round((d.last - d.first) / 3600000)) : 0;
   const cards = [
-    ['📦', d.commits, tt('mCommits')],
-    ['✍️', d.files, tt('mFiles')],
-    ['🤖', d.aiSessions, tt('mAi')],
-    ['🐾', d.projects.length, tt('mProjects')],
-    ['⏱️', active + 'h', tt('mActive')],
-  ].map(([ic, val, lab]) => `<div class="metric"><div class="m-ico">${ic}</div><div class="m-val">${val}</div><div class="m-lab">${lab}</div></div>`).join('');
+    ['commits', '📦', d.commits, tt('mCommits')],
+    ['files', '✍️', d.files, tt('mFiles')],
+    ['ai', '🤖', d.aiSessions, tt('mAi')],
+    ['projects', '🐾', d.projects.length, tt('mProjects')],
+    ['active', '⏱️', active + 'h', tt('mActive')],
+  ].map(([key, emoji, val, lab]) => `<div class="metric"><div class="m-ico">${IMG.icons[key] ? `<img class="m-img" src="${IMG.icons[key]}" alt="">` : emoji}</div><div class="m-val">${val}</div><div class="m-lab">${lab}</div></div>`).join('');
   const top = d.projects.slice(0, 10);
   const chips = top.map((p) => `<span class="rchip">${esc(p)}</span>`).join('') +
     (d.projects.length > 10 ? `<span class="rchip more">+${d.projects.length - 10}</span>` : '');
@@ -999,7 +1000,9 @@ async function renderTrophies() {
         <div class="t-progress-text">${tt('trophyProgress')(val, a.target)}</div></div>`;
     }
     return `<div class="trophy${locked ? ' locked' : ''}" title="${esc(desc)}">
-      <div class="t-icon">${locked ? '🔒' : a.emoji}</div>
+      <div class="t-icon">${IMG.trophies[a.id]
+        ? `<img class="t-img${locked ? ' locked' : ''}" src="${IMG.trophies[a.id]}" alt="">`
+        : (locked ? '🔒' : a.emoji)}</div>
       <div class="t-name">${esc(name)}</div>
       ${progressHtml}
     </div>`;
@@ -1131,6 +1134,7 @@ el('cloudRegenBtn').addEventListener('click', async () => { await diaryAPI.regen
 
 /* ---------- init ---------- */
 (async () => {
+  try { if (diaryAPI.getAssetImages) IMG = (await diaryAPI.getAssetImages()) || IMG; } catch {}
   creatures = await diaryAPI.listCreatures();
   EMOJI = Object.fromEntries(creatures.map((c) => [c.id, c.emoji]));
   NAME = Object.fromEntries(creatures.map((c) => [c.id, c.name]));

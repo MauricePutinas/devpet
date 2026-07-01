@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('diaryAPI', {
   getProgress: () => ipcRenderer.invoke('app:getProgress'),
   listCreatures: () => ipcRenderer.invoke('creatures:list'),
   getShop: () => ipcRenderer.invoke('shop:list'),
+  getAssetImages: () => ipcRenderer.invoke('assets:images'),
   buySkin: (id) => ipcRenderer.invoke('shop:buy', id),
   getScale: () => ipcRenderer.invoke('pet:getScale'),
   setScale: (s) => ipcRenderer.invoke('pet:setScale', s),
