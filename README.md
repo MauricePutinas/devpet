@@ -303,6 +303,10 @@ Released under the **MIT License**. Built with ❤️ and Claude by **Maurice**.
 
 <!-- CHANGELOG:START -->
 
+### 2026-07-02
+
+- 🐛 fix: config resets can no longer happen (three-layer guard) `6b61229`
+
 ### 2026-07-01
 
 - ✨ feat: refreshed icon set (sheet 82) + Volt hacking animation + DeepSeek option `ff97e59`
