@@ -68,6 +68,23 @@ const DEFAULTS = {
 };
 
 let cache = null;
+// true while the cache holds DEFAULTS because config.json AND its backup were unreadable
+// (transient Windows file locks from AV/cleaner tools can do this at startup). While
+// tainted, every load() retries the disk and adopts the real data as soon as it appears —
+// so a locked file can no longer masquerade as "progress lost" for the rest of the session.
+let tainted = false;
+
+// Append-only forensic log (userData/config.log) — records recoveries, taints and blocked
+// downgrades so a "why was I level 5?!" moment is diagnosable after the fact.
+function logEvent(msg) {
+  try {
+    fs.appendFileSync(path.join(app.getPath('userData'), 'config.log'), new Date().toISOString() + ' ' + msg + '\n');
+  } catch {}
+}
+
+function sleepMs(ms) {
+  try { Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms); } catch {}
+}
 
 function deepMerge(base, override) {
   const out = { ...base };
@@ -87,26 +104,52 @@ function readConfig(p) {
   return JSON.parse(fs.readFileSync(p, 'utf8').replace(/^﻿/, ''));
 }
 
-function load() {
-  if (cache) return cache;
-  let data = null;
-  try {
-    data = readConfig(CONFIG_PATH);
-  } catch (e1) {
-    // Main file missing/corrupt — recover from the last-known-good backup before
-    // ever falling back to DEFAULTS (which would look like lost progress).
-    try {
-      data = readConfig(BAK_PATH);
-      console.warn('config.json unreadable, recovered from backup:', e1.message);
-    } catch {
-      data = null;
-    }
+// Read the config with retries: a transient lock (antivirus / cleaner tools scanning the
+// file, or a rename mid-flight) fails for milliseconds, not minutes — retrying bridges it.
+// Each attempt tries the main file first, then the last-known-good backup.
+function tryReadWithRetry(attempts) {
+  let lastErr = null;
+  for (let i = 0; i < attempts; i++) {
+    if (i > 0) sleepMs(60);
+    try { return { data: readConfig(CONFIG_PATH), source: 'config.json' }; } catch (e) { lastErr = e; }
+    try { return { data: readConfig(BAK_PATH), source: 'backup' }; } catch {}
   }
+  return { data: null, error: lastErr };
+}
+
+function adopt(data) {
   cache = data ? deepMerge(DEFAULTS, data) : { ...DEFAULTS };
   // self-heal: a stale/removed creature id would load no assets → invisible pet
   if (!BY_ID[cache.creature]) cache.creature = DEFAULTS.creature;
   return cache;
 }
+
+function load() {
+  if (cache && !tainted) return cache;
+  if (cache && tainted) {
+    // Defaults are only a stopgap — keep watching the disk and switch to the real
+    // data the moment the file becomes readable again.
+    const r = tryReadWithRetry(1);
+    if (r.data) {
+      tainted = false;
+      logEvent('RECOVERED: adopted real config from ' + r.source + ' after a tainted start');
+      return adopt(r.data);
+    }
+    return cache;
+  }
+  const r = tryReadWithRetry(4);
+  if (!r.data) {
+    const missing = !fs.existsSync(CONFIG_PATH) && !fs.existsSync(BAK_PATH);
+    tainted = !missing; // a genuinely fresh install starts clean, not tainted
+    if (tainted) logEvent('TAINTED: config.json and backup unreadable (' + (r.error && r.error.message) + ') — serving defaults, will keep retrying');
+  } else if (r.source === 'backup') {
+    logEvent('config.json unreadable, recovered from backup');
+    console.warn('config.json unreadable, recovered from backup');
+  }
+  return adopt(r.data);
+}
+
+function isTainted() { return tainted; }
 
 // Write via a temp file + rename so a crash mid-write can never leave a half-written
 // (corrupt) config.json. Falls back to a direct write if the rename is refused.
@@ -121,6 +164,37 @@ function writeAtomic(p, data) {
   }
 }
 
+// Downgrade guard: XP only ever grows, so an outgoing save with LESS xp than the file on
+// disk means our in-memory state is poisoned (defaults after a failed read) or racing a
+// healthier instance. In that case the disk wins for everything gamification-related —
+// a level/skin/achievement rollback can structurally never reach the disk.
+function guardDowngrade(disk, next, patch) {
+  const diskXp = disk && disk.progress ? disk.progress.xp || 0 : 0;
+  const nextXp = next && next.progress ? next.progress.xp || 0 : 0;
+  if (diskXp <= nextXp) return next; // normal case: we're at or ahead of the disk
+  logEvent('DOWNGRADE BLOCKED: attempted save with xp=' + nextXp + ' over disk xp=' + diskXp + ' — disk state preserved');
+  console.warn('config: blocked a progress downgrade (memory xp', nextXp, '< disk xp', diskXp + ')');
+  // Rebuild from the trusted disk state, re-apply the caller's patch on top, then pin
+  // every protected field back to the disk (the patch itself may carry poisoned values).
+  const healed = deepMerge(deepMerge(DEFAULTS, disk), patch || {});
+  healed.progress = disk.progress;
+  healed.coins = disk.coins;
+  for (const k of ['unlockedSkins', 'achievements', 'usedFreezeDates']) {
+    const a = Array.isArray(disk[k]) ? disk[k] : [];
+    const b = Array.isArray(healed[k]) ? healed[k] : [];
+    healed[k] = [...new Set([...a, ...b])]; // union — never lose an unlock from either side
+  }
+  if (disk.lifetimeStats) {
+    healed.lifetimeStats = { ...healed.lifetimeStats };
+    for (const [k, v] of Object.entries(disk.lifetimeStats)) {
+      healed.lifetimeStats[k] = Math.max(v || 0, (healed.lifetimeStats && healed.lifetimeStats[k]) || 0);
+    }
+  }
+  healed.streakFreezes = Math.max(disk.streakFreezes || 0, healed.streakFreezes || 0);
+  tainted = false; // we just adopted the trusted disk state — cache is healthy again
+  return healed;
+}
+
 function save(patch) {
   cache = deepMerge(load(), patch);
   try {
@@ -128,7 +202,9 @@ function save(patch) {
     // Snapshot the current good config as a backup before overwriting, so progress can
     // always be recovered. Only back up when the existing file actually parses — never
     // let a corrupt file clobber a good backup.
-    try { readConfig(CONFIG_PATH); fs.copyFileSync(CONFIG_PATH, BAK_PATH); } catch {}
+    let disk = null;
+    try { disk = readConfig(CONFIG_PATH); fs.copyFileSync(CONFIG_PATH, BAK_PATH); } catch {}
+    if (disk) cache = guardDowngrade(disk, cache, patch);
     writeAtomic(CONFIG_PATH, JSON.stringify(cache, null, 2));
   } catch (e) {
     console.error('config save failed', e);
@@ -136,4 +212,4 @@ function save(patch) {
   return cache;
 }
 
-module.exports = { load, save, CONFIG_PATH, BAK_PATH, DEFAULTS };
+module.exports = { load, save, isTainted, CONFIG_PATH, BAK_PATH, DEFAULTS };

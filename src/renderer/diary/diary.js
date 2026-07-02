@@ -185,12 +185,29 @@ async function renderProgress() {
   try {
     const p = await diaryAPI.getProgress();
     if (!p) return;
+    renderTaintBanner(p.tainted);
     el('levelNum').textContent = p.level;
     el('xpFill').style.right = `${Math.round((1 - (p.pct || 0)) * 100)}%`;
     el('xpText').textContent = `${p.intoLevel} / ${p.levelSpan} XP`;
     const coins = p.coins || 0;
     ['coinNum', 'coinShop'].forEach((id) => { const e = el(id); if (e) e.textContent = coins; });
   } catch {}
+}
+
+// Shown when the config file couldn't be read at startup (transient lock): the numbers on
+// screen are temporary defaults, NOT lost progress — the app re-reads the file and heals
+// itself, so tell the user instead of scaring them with "Level 1".
+function renderTaintBanner(on) {
+  let b = document.getElementById('taintBanner');
+  if (!on) { if (b) b.remove(); return; }
+  if (b) return;
+  b = document.createElement('div');
+  b.id = 'taintBanner';
+  b.style.cssText = 'position:sticky;top:0;z-index:50;background:#3a2a10;color:#ffc465;border:1px solid #ffc46555;border-radius:10px;padding:10px 14px;margin:8px 12px;font-size:13px;font-weight:600;';
+  b.textContent = lang === 'de'
+    ? '⚠️ Fortschritt konnte gerade nicht von der Festplatte gelesen werden — die Anzeige ist vorübergehend falsch. Deine Daten sind sicher; die App lädt sie automatisch nach (oder starte sie einmal neu).'
+    : '⚠️ Your progress file could not be read just now — the numbers shown are temporary. Your data is safe; the app reloads it automatically (or restart once).';
+  document.body.prepend(b);
 }
 
 function renderPills() {

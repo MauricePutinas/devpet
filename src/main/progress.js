@@ -37,6 +37,9 @@ function state() {
     levelSpan: next - start,
     pct: Math.max(0, Math.min(1, (p.xp - start) / (next - start))),
     coins: cfg.coins || 0,
+    // config.json couldn't be read at startup (transient file lock) — the numbers above
+    // are defaults, NOT lost progress. The renderer shows a banner instead of a scare.
+    tainted: config.isTainted ? config.isTainted() : false,
   };
 }
 

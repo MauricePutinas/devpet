@@ -939,7 +939,16 @@ function applyCloudRelayConfig() {
 
 // ---------------- Actions ----------------
 function applyAutostart(on) {
-  try { app.setLoginItemSettings({ openAtLogin: !!on }); } catch (e) { console.error('autostart failed', e); }
+  // In dev, process.execPath is the bare electron.exe — registering it WITHOUT the app
+  // path made Windows launch an empty Electron shell at every login (and it looked like
+  // a broken DevPet). Passing the app path as an arg makes login start the real pet.
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: !!on,
+      path: process.execPath,
+      args: app.isPackaged ? [] : [app.getAppPath()],
+    });
+  } catch (e) { console.error('autostart failed', e); }
 }
 
 function setCreature(id) {
